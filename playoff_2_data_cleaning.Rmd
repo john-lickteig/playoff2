@@ -1,0 +1,143 @@
+---
+title: "Playoff Round 2"
+output: html_notebook
+---
+
+In the following notebook, we use data from NBA games to create models that predict point spread, total points scored, and offensive rebounds. 
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(lubridate)
+```
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+game_details <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+```
+
+# Previewing Data
+```{r}
+head(games)
+head(game_details)
+head(teams)
+```
+
+
+*Part 1 - Cleaning the games dataset*
+
+```{r}
+head(games)
+```
+
+# Isolating NA columns in games
+```{r}
+games_na <- games[rowSums(is.na(games)) > 0, ]
+head(games_na, 99)
+```
+99 observations are missing all in-game statistics. We will drop these rows from the dataset.
+
+```{r}
+games$GAME_DATE_EST <- as.Date(games$GAME_DATE_EST)
+games_final <- games %>%
+  drop_na() %>%
+  filter(GAME_DATE_EST >= "2014-10-28")
+head(games_final)
+```
+
+
+*Part 2 - Cleaning the game_details dataset*
+
+```{r}
+head(game_details, 300)
+```
+
+# Adding dates to player performances
+```{r}
+game_details_dates <- game_details %>%
+  left_join(games_final, by="GAME_ID") %>%
+  select(GAME_DATE_EST, colnames(game_details))
+head(game_details_dates)
+```
+
+# Removing observations from games before 2014
+
+```{r}
+game_details_dates$GAME_DATE_EST <- as.Date(game_details_dates$GAME_DATE_EST)
+head(game_details_dates, 600)
+```
+
+
+```{r}
+game_details_new <- game_details_dates %>%
+  filter(GAME_DATE_EST >= "2014-10-28")
+head(game_details_new)
+```
+
+```{r}
+game_details_final <- game_details_new %>%
+  filter(COMMENT == "")
+head(game_details_final)
+```
+
+*Part 3 - Offensive Rebounding Cleaning*
+
+# Condense Game Data
+```{r}
+games_data <- games_final %>%
+            select(GAME_DATE_EST,GAME_ID,HOME_TEAM_ID,VISITOR_TEAM_ID,PTS_home,PTS_away) %>%
+            mutate(Spread=PTS_home-PTS_away,Total=PTS_home+PTS_away)
+head(games_data)
+```
+
+# Aggregate OREB
+```{r}
+OREB = game_details_final %>%
+          select (TEAM_ABBREVIATION,GAME_ID,TEAM_ID,OREB) %>%
+          group_by(TEAM_ABBREVIATION,GAME_ID,TEAM_ID) %>%
+          summarize(OREB=sum(OREB,na.rm=T)) %>%
+          ungroup()
+head(OREB)
+```
+
+# Merge Offensive Rebounds into Game Data
+```{r}
+final_game_data = left_join(games_data,select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","HOME_TEAM_ID"="TEAM_ID")) %>%
+                    rename(OREB_home=OREB) %>%
+                    left_join(select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                    rename(OREB_away=OREB) %>%
+                    mutate(OREB=OREB_home+OREB_away)
+head(final_game_data)
+```
+
+# Creating Home and Away Team Variables
+```{r}
+team_names <- teams %>%
+            select(TEAM_ID,CITY,NICKNAME) %>%
+            unite(NAME,CITY,NICKNAME,sep=" ")
+head(team_names)
+```
+
+# Merging Team Name into Original Data
+```{r}
+all_game_data = left_join(final_game_data,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
+                        rename("Home Team"=NAME) %>%
+                        left_join(team_names,by=c("VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                        rename("Away Team"=NAME) %>%
+                        select(GAME_DATE_EST,"Home Team","Away Team",everything()) %>%
+                        select(-GAME_ID,-HOME_TEAM_ID,-VISITOR_TEAM_ID)
+head(all_game_data)
+```
+
+
+
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
