@@ -1,0 +1,51 @@
+---
+title: "Playoffs 2 Spread Model"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+game_details <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+
+all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/all_game_data.csv")
+game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
+
+```
+
+
+```{r}
+head(games_cleaned)
+head(game_details_cleaned)
+head(all_game_data)
+
+```
+
+
+## Variable Selection Using Stepwise Selection Method
+
+Starting with a basic linear regression model with all the numeric variables as predictors (except PTS_home and PTS_away as those are used to calculate Spread directly) as the baseline, and using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread, we came up with the linear regression model with equation 
+
+Spread = 0.09071(OREB_away) + 1.64248 (with AIC=2.19) 
+
+
+Thus, using stepwise selection we found that `OREB_away` alone to be the most significant predictor of `Spread`. 
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm(Spread~Total+OREB_home+OREB_away+OREB, data=all_game_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm(Spread~1,data=all_game_data)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+
