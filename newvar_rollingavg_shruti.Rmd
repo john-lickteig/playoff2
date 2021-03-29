@@ -87,13 +87,12 @@ team_names$TEAM_ID <- as.character(team_names$TEAM_ID)
 head(team_names)
 ```
 
-# Merging both AVG_PTS_home and AVG_PTS_away into one data frame and exporting the csv
+# Merging both AVG_PTS_home and AVG_PTS_away into one data frame
 ```{r}
 AvgPtsForRecent5GamesByTeam = merge(x = AvgPtsForRecent5HomeGamesByTeam, y = AvgPtsForRecent5AwayGamesByTeam, by = "TEAM_ID", all.x = TRUE)
 
  AvgPtsForRecent5GamesByTeam = merge(x = team_names, y = AvgPtsForRecent5GamesByTeam, by = "TEAM_ID", all.x = TRUE) 
 
- write.csv(AvgPtsForRecent5GamesByTeam,"last_5_avg_pts.csv", row.names = FALSE)
 ```
 
 
