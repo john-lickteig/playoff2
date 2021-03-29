@@ -1,0 +1,104 @@
+---
+title: "Engineering Rolling Average Variable"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+# Loading neccessary libraries
+```{r}
+library(purrr)
+library(dplyr)
+library(data.table)
+library(tidyverse)
+library(tidyr)
+library(stringr)
+```
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+
+game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+
+games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
+
+all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/all_game_data.csv")
+```
+
+
+# Created a list of tables, where each table represents one team's home games. Then, kept only columns for GAME_DATE_EST, HOME_TEAM_ID, and PTS_home in each table. 
+```{r}
+HomeGamesByTeamList <- split(games_cleaned, as.factor(games_cleaned$HOME_TEAM_ID))
+
+HomeGamesByTeamList <- lapply(HomeGamesByTeamList, function(x) x%>% select(GAME_DATE_EST, HOME_TEAM_ID, PTS_home))
+```
+
+# Since each table in the HomeGamesByTeamList is already sorted in order of descending GAME_DATE_EST, just kept the top 5 rows, representing the 5 most recent game played by that team. Then calculated the average points scored by the home team in the last 5 games.
+```{r}
+ListofHomeGamesByTeam_DateAndTeam <- HomeGamesByTeamList %>%
+  lapply(function(x) x%>% select(GAME_DATE_EST, HOME_TEAM_ID)) %>% 
+  lapply(function(x) x%>% slice(1:5))
+
+ListofHomeGamesByTeam_PtsOnly <- HomeGamesByTeamList %>%
+  lapply(function(x) x%>% select(PTS_home)) %>% 
+  lapply(function(x) x%>% slice(1:5)) 
+
+AvgPtsForRecent5HomeGamesByTeam <- as.data.frame(do.call(rbind,lapply(ListofHomeGamesByTeam_PtsOnly, function(x) { colSums(x) / 5 }))) %>%
+  setDT(keep.rownames = "TEAM_ID")
+
+  colnames(AvgPtsForRecent5HomeGamesByTeam)[2] <- "LAST_5_AVG_PTS_home"
+```
+
+
+
+# Created a list of tables, where each table represents one team's away games. Then, kept only columns for GAME_DATE_EST, VISITOR_TEAM_ID, and PTS_away in each table. 
+```{r}
+AwayGamesByTeamList <- split(games_cleaned, as.factor(games_cleaned$VISITOR_TEAM_ID))
+
+AwayGamesByTeamList <- lapply(AwayGamesByTeamList, function(x) x%>% select(GAME_DATE_EST, VISITOR_TEAM_ID, PTS_away))
+```
+
+# Since each table in the AwayGamesByTeamList is already sorted in order of descending GAME_DATE_EST, just kept the top 5 rows, representing the 5 most recent away games played by that team. Then calculated the average points scored by the away team in the last 5 games.
+
+```{r}
+ListofAwayGamesByTeam_DateAndTeam <- AwayGamesByTeamList %>%
+  lapply(function(x) x%>% select(GAME_DATE_EST, VISITOR_TEAM_ID)) %>% 
+  lapply(function(x) x%>% slice(1:5))
+
+ListofAwayGamesByTeam_PtsOnly <- AwayGamesByTeamList %>%
+  lapply(function(x) x%>% select(PTS_away)) %>% 
+  lapply(function(x) x%>% slice(1:5)) 
+
+AvgPtsForRecent5AwayGamesByTeam <- as.data.frame(do.call(rbind,lapply(ListofAwayGamesByTeam_PtsOnly, function(x) { colSums(x) / 5 }))) %>%
+  setDT(keep.rownames = "TEAM_ID")
+
+  colnames(AvgPtsForRecent5AwayGamesByTeam)[2] <- "LAST_5_AVG_PTS_away"
+```
+
+
+# Creating Home and Away Team Variables
+```{r}
+team_names <- teams %>%
+            select(TEAM_ID,CITY,NICKNAME) %>%
+            unite(NAME,CITY,NICKNAME,sep=" ")
+team_names$TEAM_ID <- as.character(team_names$TEAM_ID)
+head(team_names)
+```
+
+# Merging both AVG_PTS_home and AVG_PTS_away into one data frame and exporting the csv
+```{r}
+AvgPtsForRecent5GamesByTeam = merge(x = AvgPtsForRecent5HomeGamesByTeam, y = AvgPtsForRecent5AwayGamesByTeam, by = "TEAM_ID", all.x = TRUE)
+
+ AvgPtsForRecent5GamesByTeam = merge(x = team_names, y = AvgPtsForRecent5GamesByTeam, by = "TEAM_ID", all.x = TRUE) 
+
+ write.csv(AvgPtsForRecent5GamesByTeam,"last_5_avg_pts.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
