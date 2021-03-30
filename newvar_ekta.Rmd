@@ -1,0 +1,57 @@
+---
+title: "newvar_ekta"
+author: "Ekta Deshmukh"
+date: "3/29/2021"
+output: html_document
+---
+
+multiply everything 
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(lubridate)
+library(readr)
+library(Stat2Data)
+library(MASS)
+library(mosaic)
+library(car)
+library(leaps)
+library(corrplot)
+library(bestglm)
+```
+
+```{r}
+game_details_cleaned <- read_csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+head(game_details_cleaned)
+```
+
+#separate(tibble(game_details_cleaned = game_details_cleaned), MIN, sep = ":",
+#         into = c("MIN", "SEC"), fill = "left", convert = T) %>%
+#  mutate(MIN = ifelse(is.na(MIN ), 0, MIN ),
+#        game_details_cleaned$SEC = 60 * game_details_cleaned$MIN  + game_details_cleaned$SEC )
+
+```{r}
+#game_details_cleaned$FGMscale <- game_details_cleaned$MIN 
+#making na values into 0
+#game_details_cleaned[is.na(game_details_cleaned)] <- 0
+
+#making times into decimals
+#game_details_cleaned$time <- as.data.frame(round.POSIXt(game_details_cleaned$MIN))
+game_details_cleaned$MIN_NUMERIC = sapply(strsplit(as.character(game_details_cleaned$MIN),":"),
+  function(x) {
+    x <- as.numeric(x)
+    x[1]+x[2]/60
+    }
+)
+
+#scaling
+game_details_cleaned_scaled <- game_details_cleaned[, c(12:30)]*game_details_cleaned$MIN_NUMERIC
+
+#exporting as csv, and commenting out so csv doesnt get overwritten
+#write.csv(game_details_cleaned_scaled,"game_details_cleaned_scaled.csv", row.names = FALSE)
+```
+
