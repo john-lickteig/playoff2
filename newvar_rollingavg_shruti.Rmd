@@ -37,10 +37,6 @@ HomeGamesByTeamList <- lapply(HomeGamesByTeamList, function(x) x%>% select(GAME_
 
 # Since each table in the HomeGamesByTeamList is already sorted in order of descending GAME_DATE_EST, just kept the top 5 rows, representing the 5 most recent game played by that team. Then calculated the average points scored by the home team in the last 5 games.
 ```{r}
-ListofHomeGamesByTeam_DateAndTeam <- HomeGamesByTeamList %>%
-  lapply(function(x) x%>% select(GAME_DATE_EST, HOME_TEAM_ID)) %>% 
-  lapply(function(x) x%>% slice(1:5))
-
 ListofHomeGamesByTeam_PtsOnly <- HomeGamesByTeamList %>%
   lapply(function(x) x%>% select(PTS_home)) %>% 
   lapply(function(x) x%>% slice(1:5)) 
@@ -63,10 +59,6 @@ AwayGamesByTeamList <- lapply(AwayGamesByTeamList, function(x) x%>% select(GAME_
 # Since each table in the AwayGamesByTeamList is already sorted in order of descending GAME_DATE_EST, just kept the top 5 rows, representing the 5 most recent away games played by that team. Then calculated the average points scored by the away team in the last 5 games.
 
 ```{r}
-ListofAwayGamesByTeam_DateAndTeam <- AwayGamesByTeamList %>%
-  lapply(function(x) x%>% select(GAME_DATE_EST, VISITOR_TEAM_ID)) %>% 
-  lapply(function(x) x%>% slice(1:5))
-
 ListofAwayGamesByTeam_PtsOnly <- AwayGamesByTeamList %>%
   lapply(function(x) x%>% select(PTS_away)) %>% 
   lapply(function(x) x%>% slice(1:5)) 
@@ -92,13 +84,7 @@ head(team_names)
 AvgPtsForRecent5GamesByTeam = merge(x = AvgPtsForRecent5HomeGamesByTeam, y = AvgPtsForRecent5AwayGamesByTeam, by = "TEAM_ID", all.x = TRUE)
 
  AvgPtsForRecent5GamesByTeam = merge(x = team_names, y = AvgPtsForRecent5GamesByTeam, by = "TEAM_ID", all.x = TRUE) 
-
- write.csv(AvgPtsForRecent5GamesByTeam,"last_5_avg_pts.csv", row.names = FALSE)
 ```
-
-
-
-
 
 
 
