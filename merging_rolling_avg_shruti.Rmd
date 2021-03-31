@@ -1,0 +1,60 @@
+---
+title: "Joining New Engineered Variables to Final Dataset"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+#Loading Necessary Packages
+```{r}
+library(dplyr)
+```
+
+# Joining Rolling Avg Variable to Teams-Level Dataset
+
+## Importing Datasets
+```{r}
+#importing dataset with team-level variables
+final_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/final_game_data.csv")
+
+#importing dataset with rolling avg metric
+last_5_avg_pts <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/last_5_avg_pts.csv")
+
+```
+
+## Merging each game's home team's rolling avg into the data set
+```{r}
+# prepping last_5_avg_pts for merge
+last_5_avg_pts_for_home_merge <- select(last_5_avg_pts, -c('TEAM_ID', 'LAST_5_AVG_PTS_away'))
+
+# merging
+ final_game_data_with_rolling_avg <- left_join(last_5_avg_pts_for_home_merge, final_game_data, by = c("NAME"="Home.Team"))
+ 
+ # fixing order
+final_game_data_with_rolling_avg <- final_game_data_with_rolling_avg[order(final_game_data_with_rolling_avg$X),]
+```
+
+
+## Merging each game's away team's rolling avg into the data set
+```{r}
+# prepping last_5_avg_pts for merge
+last_5_avg_pts_for_away_merge <- select(last_5_avg_pts, -c('TEAM_ID', 'LAST_5_AVG_PTS_home'))
+
+# merging
+ final_game_data_with_rolling_avg <- left_join(last_5_avg_pts_for_away_merge, final_game_data_with_rolling_avg, by = c("NAME"="Away.Team"))
+ 
+ # fixing order
+final_game_data_with_rolling_avg <- final_game_data_with_rolling_avg[order(final_game_data_with_rolling_avg$X),]
+```
+
+# Fixing nameing and arrangement of columns in final dataset 
+```{r}
+final_game_data_with_rolling_avg <- final_game_data_with_rolling_avg[,c(5,6,1,3,7:51,4,2,52)]
+colnames(final_game_data_with_rolling_avg)[3] <- "Home.Team"
+colnames(final_game_data_with_rolling_avg)[4] <- "Away.Team"
+```
+
+# Exporting as csv, and commenting out to avoid overwriting
+```{r}
+# write.csv(final_game_data_with_rolling_avg,"final_game_data_with_rolling_avg.csv", row.names = FALSE)
+```
+
