@@ -48,6 +48,7 @@ games_final <- games %>%
   drop_na() %>%
   filter(GAME_DATE_EST >= "2014-10-28")
 head(games_final)
+write.csv(games_final, 'games_cleaned.csv')
 ```
 
 
@@ -83,6 +84,7 @@ head(game_details_new)
 game_details_final <- game_details_new %>%
   filter(COMMENT == "")
 head(game_details_final)
+write.csv(game_details_final, 'game_details_cleaned.csv')
 ```
 
 *Part 3 - Offensive Rebounding Cleaning*
@@ -90,30 +92,104 @@ head(game_details_final)
 # Condense Game Data
 ```{r}
 games_data <- games_final %>%
-            select(GAME_DATE_EST,GAME_ID,HOME_TEAM_ID,VISITOR_TEAM_ID,PTS_home,PTS_away) %>%
+            select(GAME_DATE_EST,GAME_ID,HOME_TEAM_ID,VISITOR_TEAM_ID,PTS_home,PTS_away,HOME_TEAM_WINS) %>%
             mutate(Spread=PTS_home-PTS_away,Total=PTS_home+PTS_away)
 head(games_data)
 ```
 
-# Aggregate OREB
+# Aggregate all player stats from each game and assign to team's respective GAME_ID
 ```{r}
-OREB = game_details_final %>%
-          select (TEAM_ABBREVIATION,GAME_ID,TEAM_ID,OREB) %>%
+sum_stats = game_details_final %>%
+          select (TEAM_ABBREVIATION,GAME_ID,TEAM_ID,FGM,FGA,FG3M,FG3A,FTM,FTA,OREB,DREB,AST,STL,BLK,TO,PF,PLUS_MINUS) %>%
           group_by(TEAM_ABBREVIATION,GAME_ID,TEAM_ID) %>%
-          summarize(OREB=sum(OREB,na.rm=T)) %>%
+          summarize(OREB=sum(OREB,na.rm=T),
+                    DREB=sum(DREB,na.rm=T),
+                    FGM=sum(FGM,na.rm=T),
+                    FGA=sum(FGA,na.rm=T),
+                    FG3M=sum(FG3M,na.rm=T),
+                    FG3A=sum(FG3A,na.rm=T),
+                    FTM=sum(FTM,na.rm=T),
+                    FTA=sum(FTA,na.rm=T),
+                    AST=sum(AST,na.rm=T),
+                    STL=sum(STL,na.rm=T),
+                    BLK=sum(BLK,na.rm=T),
+                    TO=sum(TO,na.rm=T),
+                    PF=sum(PF,na.rm=T),
+                    PLUS_MINUS=sum(PLUS_MINUS,na.rm=T)) %>%
           ungroup()
-head(OREB)
+head(sum_stats)
 ```
 
-# Merge Offensive Rebounds into Game Data
+
+# Merge All Aggregated Team Stats into Game Data
 ```{r}
 final_game_data = left_join(games_data,select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","HOME_TEAM_ID"="TEAM_ID")) %>%
                     rename(OREB_home=OREB) %>%
                     left_join(select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","VISITOR_TEAM_ID"="TEAM_ID")) %>%
                     rename(OREB_away=OREB) %>%
                     mutate(OREB=OREB_home+OREB_away)
+
 head(final_game_data)
 ```
+
+#Join game data with each team and point spread
+```{r}
+all_box_stats <- games_data %>%
+  left_join(sum_stats,select(OREB,DREB,FGM,FGA,FG3M,FG3A,FTM,FTA,AST,STL,BLK,TO,PF,-TEAM_ABBREVIATION),by=c("GAME_ID","HOME_TEAM_ID"="TEAM_ID")) %>%
+  rename(OREB_home=OREB,
+         DREB_home=DREB,
+         FGM_home=FGM,
+         FGA_home=FGA,
+         FG3M_home=FG3M,
+         FG3A_home=FG3A,
+         FTM_home=FTM,
+         FTA_home=FTA,
+         AST_home=AST,
+         STL_home=STL,
+         BLK_home=BLK,
+         TO_home=TO,
+         PF_home=PF,
+         PM_home=PLUS_MINUS) %>%
+  left_join(sum_stats,select(OREB,DREB,FGM,FGA,FG3M,FG3A,FTM,FTA,AST,STL,BLK,TO,PF,-TEAM_ABBREVIATION),by=c("GAME_ID","VISITOR_TEAM_ID"="TEAM_ID")) %>%
+  rename(OREB_away=OREB,
+         DREB_away=DREB,
+         FGM_away=FGM,
+         FGA_away=FGA,
+         FG3M_away=FG3M,
+         FG3A_away=FG3A,
+         FTM_away=FTM,
+         FTA_away=FTA,
+         AST_away=AST,
+         STL_away=STL,
+         BLK_away=BLK,
+         TO_away=TO,
+         PF_away=PF,
+         PM_away=PLUS_MINUS) %>%
+  mutate(OREB=OREB_home+OREB_away,
+         DREB=DREB_home+DREB_away,
+         FGM=FGM_home+FGM_away,
+         FGA=FGA_home+FGA_away,
+         FG3M=FG3M_home+FG3M_away,
+         FG3A=FG3A_home+FG3A_away,
+         FTM=FTM_home+FTM_away,
+         FTA=FTA_home+FTA_away,
+         AST=AST_home+AST_away,
+         STL=STL_home+STL_away,
+         BLK=BLK_home+BLK_away,
+         TO=TO_home+TO_away,
+         PF=PF_home+PF_away) %>%
+  subset(select=-c(TEAM_ABBREVIATION.x,TEAM_ABBREVIATION.y))
+
+head(all_box_stats)
+```
+
+#Reorder columns so home, away, and total metrics are all next to one another
+```{r}
+all_box_stats <- all_box_stats[ ,c("GAME_DATE_EST", "GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID", "PTS_home", "PTS_away", "Spread", "Total", "OREB_home", "OREB_away", "OREB", "DREB_home", "DREB_away", "DREB", "FGM_home", "FGM_away", "FGM", "FGA_home", "FGA_away", "FGA", "FG3M_home", "FG3M_away", "FG3M", "FG3A_home", "FG3A_away", "FG3A", "FTM_home", "FTM_away", "FTM", "FTA_home", "FTA_away", "FTA", "AST_home", "AST_away", "AST", "STL_home", "STL_away", "STL", "BLK_home", "BLK_away", "BLK", "TO_home", "TO_away", "TO", "PF_home", "PF_away", "PF", "PM_home", "PM_away", "HOME_TEAM_WINS")]
+head(all_box_stats)
+```
+
+
 
 # Creating Home and Away Team Variables
 ```{r}
@@ -125,15 +201,18 @@ head(team_names)
 
 # Merging Team Name into Original Data
 ```{r}
-all_game_data = left_join(final_game_data,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
+final_game_data = left_join(all_box_stats,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
                         rename("Home Team"=NAME) %>%
                         left_join(team_names,by=c("VISITOR_TEAM_ID"="TEAM_ID")) %>%
                         rename("Away Team"=NAME) %>%
                         select(GAME_DATE_EST,"Home Team","Away Team",everything()) %>%
                         select(-GAME_ID,-HOME_TEAM_ID,-VISITOR_TEAM_ID)
-head(all_game_data)
+head(final_game_data)
 ```
 
+```{r}
+write.csv(final_game_data, 'final_game_data.csv')
+```
 
 
 
