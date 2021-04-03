@@ -41,7 +41,9 @@ step(none,scope=list(upper=Full),scale=MSE)
 ```
 
 
-## Variable Selection with New rolling avg variable Using Stepwise Selection Method
+
+
+## Variable Selection with New Rolling Avg Variable Using Stepwise Selection Method
 
 Starting with a basic linear regression model with all the numeric team-level variables as predictors (except PTS_home and PTS_away as those are used to calculate Spread directly) as the baseline linear model, and using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread, we came up with the linear regression model with equation below.
 
@@ -70,4 +72,38 @@ shruti_spread_model_1 = lm(formula = Spread ~ PM_home + AST_away + FGA_home + FG
 summary(shruti_spread_model_1)
 ```
 
+## Checking for multicollinearity between the predictors included in shruti_spread_model_1
+
+
+Since the focus of the spread model is on making inferences regarding the relative importance of the predictors, and would likely be used to make predictions in a different basketball data set, in which the correlations may be different, a high VIF may be problematic. A high VIF makes it hard to disentangle the relative importance of predictors to the response, spread, in a model, and leads to a more inflated std. error (and thus variance/R^2), thereby a smaller chance that the correlation coefficient of a predictor is statistically significant.
+
+There are no VIF greater than 5 (or > 2,5, if taking a more conservative approach) for any of the predictors included in the spread model, indicating a lack of inflation due to multicollinearity within the linear model.
+
+```{r}
+round(cor(final_game_data_with_rolling_avg[5:50]),2)
+```
+```{r}
+vif<- function(model, ...) {  
+  V <- summary(model)$cov.unscaled
+  Vi <- crossprod(model.matrix(model))
+	nam <- names(coef(model))
+  if(k <- match("(Intercept)", nam, nomatch = F)) {
+		v1 <- diag(V)[-k]
+		v2 <- (diag(Vi)[-k] - Vi[k, -k]^2/Vi[k,k])
+		nam <- nam[-k]
+	} else {
+		v1 <- diag(V)
+		v2 <- diag(Vi)
+		warning("No intercept term detected.  Results may
+surprise.")
+	}
+	structure(v1*v2, names = nam)
+}
+
+vif(shruti_spread_model_1)
+```
+
+# Next: cross validate model with training data
+
+# Then: repeat stepwise process after cross validation
 
