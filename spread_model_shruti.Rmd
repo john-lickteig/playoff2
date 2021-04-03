@@ -4,7 +4,6 @@ author: "Shruti Gopalswamy"
 output: html_notebook
 ---
 
-
 # Importing the Data
 ```{r}
 games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
@@ -15,15 +14,9 @@ all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playo
 game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
 games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
 
+final_game_data_with_rolling_avg <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/final_game_data_with_rolling_avg.csv")
 ```
 
-
-```{r}
-head(games_cleaned)
-head(game_details_cleaned)
-head(all_game_data)
-
-```
 
 
 ## Variable Selection Using Stepwise Selection Method
@@ -47,5 +40,34 @@ none=lm(Spread~1,data=all_game_data)
 step(none,scope=list(upper=Full),scale=MSE)
 ```
 
+
+## Variable Selection with New rolling avg variable Using Stepwise Selection Method
+
+Starting with a basic linear regression model with all the numeric team-level variables as predictors (except PTS_home and PTS_away as those are used to calculate Spread directly) as the baseline linear model, and using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread, we came up with the linear regression model with equation below.
+
+Spread = 3.151e-02(PM_home) + 1.030e-04(AST_away) + -1.099e-04(FGA_home) + -2.899e-01(FG3M_away) + 2.898e-01(Total) + -5.796e-01(FGM) + -2.898e-01(FG3M_home) + -2.897e-01(FTM) + -1.685e-01(PM_away) + -9.262e-05(FTA_away) + 8.811e-05 (FG3A_away) + -9.853e-05(TO_home) + 9.583e-05(AST_home) + 8.358e-03 
+
+AIC decreased from 4562503013 (empty model) to 9527.17 (above lm)
+
+Thus, using stepwise selection we found that the team-level variables `PM_home`, `AST_away`, `FGA_home`, `FG3M_away`, `Total`, `FGM`, `FG3M_home`, `FTM`, `PM_away`, `FTA_away`, `FG3A_away`, `TO_home`, `AST_home` to be the most significant predictors of `Spread`. 
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm(Spread ~ . - X - GAME_DATE_EST - Home.Team - Away.Team - PTS_home - PTS_away, data=final_game_data_with_rolling_avg)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm(Spread~1,data=final_game_data_with_rolling_avg)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+```{r}
+shruti_spread_model_1 = lm(formula = Spread ~ PM_home + AST_away + FGA_home + FG3M_away + Total + FGM + FG3M_home + FTM + PM_away + FTA_away + FG3A_away + TO_home + AST_home, data = final_game_data_with_rolling_avg)
+
+summary(shruti_spread_model_1)
+```
 
 
