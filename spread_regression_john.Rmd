@@ -1,0 +1,68 @@
+---
+title: "Spread Regression"
+output: html_notebook
+---
+
+```{r}
+library(MASS)
+```
+
+
+# Importing game data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+game_details <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/all_game_data.csv")
+game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
+final_game_data_with_rolling_avg <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/final_game_data_with_rolling_avg.csv")
+```
+
+#Define Stepwise regression model
+
+First we define a model with all predictors, removing the ones at the beginning and PTS_home and PTS_away because they are add up to the spread.
+```{r}
+all_predictors = lm(Spread ~ . - X - GAME_DATE_EST - Home.Team - Away.Team - PTS_home - PTS_away, data=final_game_data_with_rolling_avg)
+```
+
+
+
+Next, we use the function stepAIC and use forward selection.
+```{r}
+forward = stepAIC(all_predictors, direction='forward', trace=FALSE)
+
+summary(forward)
+```
+We find the significant predictors to be Total, FGM_home, FGM_away, FG3M_home, FG3M_away, FTM_home, FTM_away, PM_home, and PM_away.
+
+# Define a new model using the results from forward selection
+```{r}
+forward_model = lm(Spread ~ Total + FGM_home + FGM_away + FG3M_home + FG3M_away + FTM_home + FTM_away + PM_home + PM_away, data=final_game_data_with_rolling_avg)
+```
+
+
+
+Then we use backward selection.
+```{r}
+backward = stepAIC(all_predictors, direction='backward', trace=FALSE)
+
+summary(backward)
+```
+We find the significant predictors here are also Total, FGM_home, FGM_away, FG3M_home, FG3M_away, FTM_home, FTM_away, PM_home, and PM_away.
+
+
+
+# Define a new model using the results from backward selection
+```{r}
+backward_model = lm(Spread ~ Total + FGM_home + FGM_away + FG3M_home + FG3M_away + FTM_home + FTM_away + PM_home + PM_away, data=final_game_data_with_rolling_avg)
+```
+
+Each selection process found that the same predictors were significant.
+
+
+
+
+
+.
+
