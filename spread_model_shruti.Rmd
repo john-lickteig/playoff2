@@ -74,7 +74,6 @@ summary(shruti_spread_model_1)
 
 ## Checking for multicollinearity between the predictors included in shruti_spread_model_1
 
-
 Since the focus of the spread model is on making inferences regarding the relative importance of the predictors, and would likely be used to make predictions in a different basketball data set, in which the correlations may be different, a high VIF may be problematic. A high VIF makes it hard to disentangle the relative importance of predictors to the response, spread, in a model, and leads to a more inflated std. error (and thus variance/R^2), thereby a smaller chance that the correlation coefficient of a predictor is statistically significant.
 
 There are no VIF greater than 5 (or > 2,5, if taking a more conservative approach) for any of the predictors included in the spread model, indicating a lack of inflation due to multicollinearity within the linear model.
@@ -112,8 +111,7 @@ Since PTS_home and PTS_away are represent the values that go into calculating Sp
 Starting with a basic linear regression model with all the numeric team-level variables as predictors (except Spread and Total) as the baseline linear model. Then using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting PTS_away, we came up with the linear regression model with equation below.
 
 Call:
-lm(formula = (PTS_home) ~ FGM_home + FTM_home + FG3M_home + OREB + 
-    FG3A_home, data = final_game_data_with_rolling_avg)
+lm(formula = (PTS_home) ~ FGM_home + FTM_home + FG3M_home + OREB + FG3A_home, data = final_game_data_with_rolling_avg)
 
 Coefficients:
 (Intercept)     FGM_home     FTM_home    FG3M_home         OREB    FG3A_home  
@@ -143,8 +141,7 @@ step(none,scope=list(upper=Full),scale=MSE)
 Starting with a basic linear regression model with all the numeric and binary team-level variables as predictors (except Spread and Total) as the baseline linear model. Then using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting PTS_away, we came up with the linear regression model with equation below.
 
 Call:
-lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + LAST_5_AVG_PTS_away + 
-    BLK_away + HOME_TEAM_WINS, data = final_game_data_with_rolling_avg)
+lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + LAST_5_AVG_PTS_away + BLK_away + HOME_TEAM_WINS, data = final_game_data_with_rolling_avg)
 
 Coefficients:
         (Intercept)             FGM_away             FTM_away            FG3M_away  
@@ -170,6 +167,74 @@ step(none,scope=list(upper=Full),scale=MSE)
 ```
 
 
+# R^2 for PTS_home model
+Multiple R-squared:  0.9999,	Adjusted R-squared:  0.9999 
+
+```{r}
+shruti_PTS_home_model_1 = lm(formula = (PTS_home) ~ FGM_home + FTM_home + FG3M_home + OREB + FG3A_home, data = final_game_data_with_rolling_avg)
+
+summary(shruti_PTS_home_model_1)
+```
+
+# R^2 for PTS_home model
+Multiple R-squared:      1,	Adjusted R-squared:      1 
+
+```{r}
+shruti_PTS_away_model_1 = lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + LAST_5_AVG_PTS_away + BLK_away + HOME_TEAM_WINS, data = final_game_data_with_rolling_avg)
+
+summary(shruti_PTS_away_model_1)
+```
+
+# Using VIF to assess presence of multi-colinnearity of individual PTS_away and PTS_home models
+
+Both the linear models for PTS_home and PTS_away had very high R^2 values, which seems to indicate that they are statistically significant models. However, such a high R^2 value for both models may indicate the presence of multicollinearity, skewing the likelihood of statistical significance among the correlation coefficients of the predictors, and thus the overall model.
+
+Since the focus of both the spread and total models is on making inferences regarding the relative importance of the predictors, and would likely be used to make predictions in a different basketball data set, in which the correlations may be different, a high VIF may be problematic. A high VIF makes it hard to disentangle the relative importance of predictors to the response, spread or total, in a model, and leads to a more inflated std. error (and thus variance/R^2), thereby a smaller chance that the correlation coefficient of a predictor is statistically significant.
+
+There are no VIF greater than 5 (or > 2.5, if taking a more conservative approach) for any of the predictors included in the spread model, indicating a lack of inflation due to multicollinearity within the linear model. However, taking a more conservative approach, predictors `FG3M_home` (with a VIF of 2.833692) and `FG3A_home` (with VIF of 2.472331)in the model for `PTS_home` as response, have VIF values greater than 2.5, which indicates that the correlation between just those two predictors (the correlation coefficient between the two is 0.75) may be too high enough to the point that the relative importance of both of predictors is not meaningful in context of the response variable, and thus the more inflated std. error and variance indicates that the seemingly strong correlation coefficient of 0.75 between the two predictors is not likely to be statistically significant. in other words, the two predictors are too closely related in context, that they do not add much meaningful value in terms of statistical significance to the predictive model.
+
+# could try removing the high VIF variables and see if overall R^2 of model (run summary() on the model) is higher. if not keep the high VIF variables.
+
+```{r}
+round(cor(final_game_data_with_rolling_avg[5:50]),2)
+```
 
 
+```{r}
+vif<- function(model, ...) {  
+  V <- summary(model)$cov.unscaled
+  Vi <- crossprod(model.matrix(model))
+	nam <- names(coef(model))
+  if(k <- match("(Intercept)", nam, nomatch = F)) {
+		v1 <- diag(V)[-k]
+		v2 <- (diag(Vi)[-k] - Vi[k, -k]^2/Vi[k,k])
+		nam <- nam[-k]
+	} else {
+		v1 <- diag(V)
+		v2 <- diag(Vi)
+		warning("No intercept term detected.  Results may
+surprise.")
+	}
+	structure(v1*v2, names = nam)
+}
+```
 
+```{r}
+vif(shruti_PTS_home_model_1)
+```
+
+```{r}
+vif(shruti_PTS_away_model_1)
+```
+
+# R^2 for PTS_home model with teh high VIF predictors removed
+
+Multiple R-squared:  0.9208,	Adjusted R-squared:  0.9208 
+
+After removing the predictors `FG3M_home` and `FG3A_home`, which could be considered to have a high VIF values, if gauging with more strict boundaries, the new `PTS_home` model actually had a lower R^2 value.
+
+```{r}
+shruti_PTS_home_model_2 = lm(formula = (PTS_home) ~ FGM_home + FTM_home + OREB, data = final_game_data_with_rolling_avg)
+
+summary(shruti_PTS_home_model_2)
+```
