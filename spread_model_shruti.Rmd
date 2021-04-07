@@ -103,7 +103,68 @@ surprise.")
 vif(shruti_spread_model_1)
 ```
 
-# Next: cross validate model with training data
+# converting response variable to be points away & points home (to account for spread and total without repitition)
 
-# Then: repeat stepwise process after cross validation
+Since PTS_home and PTS_away are represent the values that go into calculating Spread and Total, a model that uses the sum of difference between PTS_home and PTS_away variables as response variables and doesn't include Total or Spread as predictors may be less repetitive and could provide better predictive power while minimzing the number of predictors.
 
+# Stepwise on PTS_home + PTS_away model, for predicting spread 
+
+Starting with a basic linear regression model with all the numeric team-level variables as predictors (except Spread and Total as those are the variables we are looking to predict indirectly, by using PTS_away + PTS_home as the response variables, since those are values used to calculate Spread and Total anyways; also avoids repetitive models) as the baseline linear model. Then using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread and/or Total, we came up with the linear regression model with equation below.
+
+Call:
+lm(formula = (PTS_home + PTS_away) ~ FGM + FTM + FG3M + AST_away + 
+    OREB, data = final_game_data_with_rolling_avg)
+
+Coefficients:
+(Intercept)          FGM          FTM         FG3M     AST_away         OREB  
+  0.0158517    1.9997242    1.0000652    1.0001642    0.0006596   -0.0005328  
+
+
+After performing the stepwise selection algorithm, the AIC decreased from 161083602 (for the empty model) to 1749.89 (above lm)
+
+Thus, using the stepwise selection algorithm, we found that the team-level variables `FGM`, `FTM`, `FG3M`, `AST_away`, `OREB` to be the most significant predictors of `PTS_home`+ `PTS_away`, which in turn predicts Spread
+
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm((PTS_home+PTS_away) ~ . - X - GAME_DATE_EST - Home.Team - Away.Team - Spread - Total, data=final_game_data_with_rolling_avg)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_home+PTS_away)~1,data=final_game_data_with_rolling_avg)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+Thought above model alone might be able to predict Total and Spread well, so to verify,  wanted to check if difference would produce a different best model for Total.
+
+Starting with a basic linear regression model with all the numeric team-level variables as predictors (except Spread and Total as those are the variables we are looking to predict indirectly, by using PTS_away - PTS_home as the response variables, since those are values used to calculate Spread and Total anyways; also avoids repetitive models) as the baseline linear model. Then using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread and/or Total, we came up with the linear regression model with equation below.
+
+Call:
+# lm(formula = (PTS_home - PTS_away) ~ PM_home + AST_away + FGA_home +  DREB_away, data = final_game_data_with_rolling_avg)
+
+Coefficients:
+# (Intercept)      PM_home     AST_away     FGA_home    DREB_away  
+  0.0079186    0.2000086    0.0003362   -0.0002544    0.0002079 
+
+
+After performing the stepwise selection algorithm, the AIC decreased from 518422288 (for the empty model) to -9.84 (above lm), which is a very drastic decrease rendering a very low AIC, which indicates strong significance of predictors to the response 
+
+Thus, using the stepwise selection algorithm, we found that the team-level variables `PM_home`, `AST_away`,`FGA_home` ,`DREB_away` to be the most significant predictors of `PTS_home`- `PTS_away`, which in turn predicts Total
+
+Since running the stepwise algorithm on model using difference between PTS_home and PTS_away produced different set of predictors than that using sum of PTS_home and PTS_away, this indicates that it may be better to use separate models for each response.
+
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm((PTS_home-PTS_away) ~ . - X - GAME_DATE_EST - Home.Team - Away.Team - Spread - Total, data=final_game_data_with_rolling_avg)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_home-PTS_away)~1,data=final_game_data_with_rolling_avg)
+step(none,scope=list(upper=Full),scale=MSE)
+```
