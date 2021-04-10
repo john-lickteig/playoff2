@@ -1,0 +1,134 @@
+---
+title: "Playoffs 2 Ridge/Lasso Regression Models"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+game_details <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+
+all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/all_game_data.csv")
+game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
+
+final_game_data_with_rolling_avg <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/final_game_data_with_rolling_avg.csv")
+```
+
+# Data Partitioning: Test and Train Data
+
+Randomly splitting up the data so that the train set contains 85% of the data while test set contains the remaining 15% percent.
+
+```{r}
+set.seed(100) 
+
+index = sample(1:nrow(final_game_data_with_rolling_avg), 0.85*nrow(final_game_data_with_rolling_avg)) 
+
+train_data = final_game_data_with_rolling_avg[index, -c(1:4)] # Create the training data,
+test_data = final_game_data_with_rolling_avg[-index,-c(1:4)] # Create the test data, excluding non-numeric features
+
+dim(train_data)
+dim(test_data)
+```
+
+
+# Baseline Linear Model
+- Created a baseline linear model with all variables as predictors, except for non-numeric variables and variables that may be highly collinear/would be highly correlated among themselves (PTS_home, PTS_away or Total)
+
+- The significance code `***` in the output shows that only few features are important predictors
+
+- This model has 45 predictors, so as model's complexity increases, bc of the large amount of predictors.
+
+- This results in increased variance, decreased bias and with no penalization, the model is being overfit with certain variables being enforced in, as suggested by the extremely high adjusted R^2 value of 1.
+
+```{r}
+# baseline_model=lm(Spread ~ . - X - GAME_DATE_EST - Home.Team - Away.Team - PTS_home - PTS_away, data=train_data)
+baseline_model=lm(Spread ~ . - PTS_home - PTS_away, data=train_data)
+
+summary(baseline_model)
+```
+
+
+# Elastic Net (LASSO/Ridge "hybrid") to fix overfitting 
+
+- To overcome over-fitting and create a model with reduced complexity while also minimizing the loss of information and accuracy from variable selection, we used regularization via elastic net regression, 
+
+- Elastic net regression combines the penalties of ridge and LASSO regression and achieves a good balance between the bias and variance trade-off, which resulted in a multiple R^2 = 0.999587040965076
+
+- Elastic net regression does well when the dataset is large, and works by penalizing model by both L1-norm nad L2-norm 
+
+- algorithm is doing multiple iterations of cross validation to tune the penality parameter lanbda and alpha to optimal value
+
+```{r}
+library(caret)
+
+# Set training control
+train_control <- trainControl(method = "repeatedcv",
+                              number = 10,
+                              repeats = 5,
+                              search = "random",
+                              verboseIter = TRUE)
+
+# Train the model
+elastic_net_model <- train(Spread ~ . - PTS_home - PTS_away,
+                           data = train_data,
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           tuneLength = 10,
+                           trControl = train_control)
+
+# This is best tuning parameter, which is being used
+elastic_net_model$bestTune
+
+# Check multiple R-squared
+y_hat_enet <- predict(elastic_net_model, train_data)
+rsq_enet <- cor(train_data$Spread, y_hat_enet)^2
+```
+
+
+# Cross Validation
+
+For the train dataset:
+- RMSE = 0.412863
+- R^2 = 0.9991294
+
+For the test dataset:
+- RMSE = 0.3882239
+- R^2 = 0.9991829
+
+- Therefore, `elastic_net_model` model actually performed better on the new test data, than the data it was trained on. 
+
+```{r}
+x_train = as.matrix(train_data)
+x_test = as.matrix(test_data)
+
+str(train_data)
+
+
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics in a clean output
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+}
+
+# Make predictions on training set
+predictions_train <- predict(elastic_net_model, train_data)
+eval_results(train_data$Spread, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(elastic_net_model, test_data)
+eval_results(test_data$Spread, predictions_test, test_data)
+```
+
+

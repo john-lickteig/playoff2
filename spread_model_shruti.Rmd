@@ -18,31 +18,6 @@ final_game_data_with_rolling_avg <- read.csv("https://raw.githubusercontent.com/
 ```
 
 
-
-## Variable Selection Using Stepwise Selection Method
-
-Starting with a basic linear regression model with all the numeric variables as predictors (except PTS_home and PTS_away as those are used to calculate Spread directly) as the baseline, and using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread, we came up with the linear regression model with equation 
-
-Spread = 0.09071(OREB_away) + 1.64248 (with AIC=2.19) 
-
-
-Thus, using stepwise selection we found that `OREB_away` alone to be the most significant predictor of `Spread`. 
-
-```{r}
-# Fit the full model as the baseline linear reg. model
-Full=lm(Spread~Total+OREB_home+OREB_away+OREB, data=all_game_data)
-
-# Find the MSE for the baseline full model
-MSE=(summary(Full)$sigma)^2
-
-# Start the stepwise selection process with a model with no predictors
-none=lm(Spread~1,data=all_game_data)
-step(none,scope=list(upper=Full),scale=MSE)
-```
-
-
-
-
 ## Variable Selection with New Rolling Avg Variable Using Stepwise Selection Method
 
 Starting with a basic linear regression model with all the numeric team-level variables as predictors (except PTS_home and PTS_away as those are used to calculate Spread directly) as the baseline linear model, and using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting Spread, we came up with the linear regression model with equation below.
@@ -67,7 +42,7 @@ step(none,scope=list(upper=Full),scale=MSE)
 
 
 ```{r}
-shruti_spread_model_1 = lm(formula = Spread ~ PM_home + AST_away + FGA_home + FG3M_away + Total + FGM + FG3M_home + FTM + PM_away + FTA_away + FG3A_away + TO_home + AST_home, data = final_game_data_with_rolling_avg)
+shruti_spread_model_1 = lm(formula = Spread ~ PM_home + FG3M_away + Total + FGM + FG3M_home + FTM + PM_away + FTA_away + FG3A_away + TO_home + AST_home, data = final_game_data_with_rolling_avg)
 
 summary(shruti_spread_model_1)
 ```
@@ -102,9 +77,12 @@ surprise.")
 vif(shruti_spread_model_1)
 ```
 
+
+
 # converting response variable to be points away & points home (to account for spread and total without repitition)
 
 Since PTS_home and PTS_away are represent the values that go into calculating Spread and Total, a model combines two individual models, one that predict PTS_home alone, with another that predicts PTS_away alone, (both excluding the Spread and Total variables, as those are the variables we are looking to predict indirectly) may be less repetitive and could provide better predictive power while minimizing the number of predictors.
+
 
 # Stepwise on PTS_home model
 
@@ -177,7 +155,8 @@ summary(shruti_PTS_home_model_1)
 ```
 
 # R^2 for PTS_home model
-Multiple R-squared:      1,	Adjusted R-squared:      1 
+Multiple R-squared:      1
+Adjusted R-squared:      1 
 
 ```{r}
 shruti_PTS_away_model_1 = lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + LAST_5_AVG_PTS_away + BLK_away + HOME_TEAM_WINS, data = final_game_data_with_rolling_avg)
@@ -227,9 +206,10 @@ vif(shruti_PTS_home_model_1)
 vif(shruti_PTS_away_model_1)
 ```
 
-# R^2 for PTS_home model with teh high VIF predictors removed
+# R^2 for PTS_home model with the high VIF predictors removed
 
-Multiple R-squared:  0.9208,	Adjusted R-squared:  0.9208 
+Multiple R-squared:  0.9208
+Adjusted R-squared:  0.9208 
 
 After removing the predictors `FG3M_home` and `FG3A_home`, which could be considered to have a high VIF values, if gauging with more strict boundaries, the new `PTS_home` model actually had a lower R^2 value.
 
