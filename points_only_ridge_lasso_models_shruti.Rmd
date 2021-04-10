@@ -1,0 +1,259 @@
+---
+title: "Playoffs 2 Ridge/Lasso Regression POINTS models"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+# Summary:
+(1) Partitioned the data into training and test data sets using 85:15 ratio (will use train data set to build the models and test dataset to cross validate at the end)
+
+(2) Created the individual PTS_home and PTS_away models by first running stepwise, then bc the R^2 was too high, fixed the over-fitting issue using ridge regression 
+
+NOTE: ridge regression doesn't reduce the amount of predictors so it's useful to create prediction models that already have went through variable selection (in this case I did stepwise first) or the dataset only has a few predictors to start off with anyways
+
+(3) cross validation showed that both the PTS_home and PTS_away models did well on the trest data, so both have relatively strong predictive power on data sets they weren't trained for already
+ 
+NOTE: we can add up the values from this model for spread or subtract for total
+
+
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games.csv")
+game_details <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/mattymo18/STOR-538-Project2-2021/master/Source-Data/teams.csv")
+
+all_game_data <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/all_game_data.csv")
+game_details_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/game_details_cleaned.csv")
+games_cleaned <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/games_cleaned.csv")
+
+final_game_data_with_rolling_avg <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/final_game_data_with_rolling_avg.csv")
+
+season_level_stats <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_stats.csv")
+```
+
+# Data Partitioning: Test and Train Data
+
+Randomly splitting up the data so that the train set contains 85% of the data while test set contains the remaining 15% percent.
+
+```{r}
+set.seed(100) 
+
+index = sample(1:nrow(final_game_data_with_rolling_avg), 0.85*nrow(final_game_data_with_rolling_avg)) 
+
+train_data = final_game_data_with_rolling_avg[index, -c(1:4)] # Create the training data,
+test_data = final_game_data_with_rolling_avg[-index,-c(1:4)] # Create the test data, excluding non-numeric features
+
+dim(train_data)
+dim(test_data)
+```
+
+# Stepwise on PTS_home model
+
+- We started off with two baseline linear models, one using PTS_home as the response, the other PTS_away. We initally performed a manual variable selection and chose to exclude the numeric variables that would have been highly correlated among themselves(i.e. Spread, Total, and depending on which model PTS_home or PTS_away respectively). Then we used the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for indivdually predicting PTS_home and PTS_away. We came up with our two baseline linear regression models with equations below
+
+- The significance codes `***` and `**` in both outputs shows that only few features are important predictors at or above the alpha=0.01 significance level.
+
+- As suggested by the extremely high adjusted R^2 values of 1 for both baseline models, with no penalization, the models are being over-fit (i.e. incorporating every data point, including outliers/noise from the training set), likely reducing their predictive strength on a new test dataset.
+
+# Stepwise FOR PTS_home:
+Call:
+lm(formula = (PTS_home) ~ FGM_home + FTM_home + FG3M_home + OREB + 
+    FG3A_home, data = train_data)
+
+Coefficients:
+(Intercept)     FGM_home     FTM_home    FG3M_home         OREB    FG3A_home  
+  0.0085480    1.9999275    1.0002126    0.9991149   -0.0005691    0.0005001  
+
+
+After performing the stepwise selection algorithm, the AIC decreased from 89989507 (for the empty model) to 2884.76 (above linear model)
+
+Thus, using the stepwise selection algorithm, we found that the game-level variables `FGM_home`, `FTM_home`, `OREB`, `FG3A_home`, to be the most significant predictors of `PTS_home`
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm((PTS_home) ~ . - Spread - Total - PTS_away, data=train_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_home)~1,data=train_data)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+# Stepwise for PTS_away
+Call:
+lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + BLK_away + 
+    LAST_5_AVG_PTS_away + HOME_TEAM_WINS, data = train_data)
+
+Coefficients:
+        (Intercept)             FGM_away             FTM_away            FG3M_away  
+         -0.0133186            1.9999251            0.9997481            1.0003136  
+           BLK_away  LAST_5_AVG_PTS_away       HOME_TEAM_WINS  
+         -0.0006138            0.0002147           -0.0029833  
+
+After performing the stepwise selection algorithm, the AIC decreased from 374155890 (for the empty model) to 2692.87 (above linear model)
+
+Thus, using the stepwise selection algorithm, we found that the game-level variables `FGM_home`, `FTM_home`, `FG3M_away`, `BLK_away`, `LAST_5_AVG_PTS_away`, `HOME_TEAM_WINS` to be the most significant predictors of `PTS_away`
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm((PTS_away) ~ . - Spread - Total - PTS_home, data=train_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_away)~1,data=train_data)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+# R^2 for PTS_home model
+Multiple R-squared:  0.9999
+Adjusted R-squared:  0.9999 
+
+```{r}
+baseline_home_model = lm(formula = (PTS_home) ~ FGM_home + FTM_home + FG3M_home + OREB + FG3A_home, data = train_data)
+
+summary(baseline_home_model)
+```
+
+# R^2 for PTS_away model
+Multiple R-squared: 1
+Adjusted R-squared: 1 
+
+```{r}
+baseline_away_model = lm(formula = (PTS_away) ~ FGM_away + FTM_away + FG3M_away + BLK_away + LAST_5_AVG_PTS_away + HOME_TEAM_WINS, data = train_data)
+
+summary(baseline_away_model)
+```
+
+
+
+# Ridge Regression to fix overfitting for PTS_home 
+
+- To overcome over-fitting, we used regularization via ridge regression, which works by adding a penalty parameter equal to the square of the magnitude of the coefficients, but does not narrow down variables, since we already selected variables 
+
+```{r}
+library(glmnet)
+library(caret)
+dummies <- dummyVars(PTS_home ~ ., data = final_game_data_with_rolling_avg[,-c(1:4)])
+
+train_dummies = predict(dummies, newdata = train_data)
+
+test_dummies = predict(dummies, newdata = test_data)
+dim(train_dummies)
+dim(test_dummies)
+
+x = as.matrix(train_dummies)
+x_test = as.matrix(test_dummies)
+
+cv_ridge <- cv.glmnet(x, train_data$PTS_home, alpha = 0, lambda = lambdas)
+
+optimal_lambda <- cv_ridge$lambda.min
+optimal_lambda
+
+ridge_reg_home_model = glmnet(x, train_data$PTS_home, nlambda = 25, alpha = 0, family = 'gaussian', lambda = optimal_lambda)
+
+summary(ridge_reg_home_model)
+```
+
+
+# Ridge Regression to fix overfitting for PTS_away 
+
+```{r}
+library(glmnet)
+library(caret)
+dummies <- dummyVars(PTS_away ~ ., data = final_game_data_with_rolling_avg[,-c(1:4)])
+
+train_dummies = predict(dummies, newdata = train_data)
+
+test_dummies = predict(dummies, newdata = test_data)
+dim(train_dummies)
+dim(test_dummies)
+
+x = as.matrix(train_dummies)
+x_test = as.matrix(test_dummies)
+
+cv_ridge <- cv.glmnet(x, train_data$PTS_away, alpha = 0, lambda = lambdas)
+
+optimal_lambda <- cv_ridge$lambda.min
+optimal_lambda
+
+ridge_reg_away_model = glmnet(x, train_data$PTS_away, nlambda = 25, alpha = 0, family = 'gaussian', lambda = optimal_lambda)
+
+summary(ridge_reg_away_model)
+```
+
+
+# Cross Validation for PTS_home
+
+For the train dataset:
+- RMSE = 5.66225
+- R^2 = 0.8017886
+
+For the test dataset:
+- RMSE = 5.491986
+- R^2 = 0.8172186
+
+- The shrinkage value was 0.170264, meaning that between the training data sample and the test data sample, the multiple R^2 of the model decreased by 0.170264, which is not too drastic of a drop, as it is relatively close to zero. The low shrinkage value as well as low RMSE indicates that our ridge regression model for home team points worked relatively as well on the test data sample as it did on the training data it was optimized for. 
+
+```{r}
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg_home_model, s = optimal_lambda, newx = x)
+eval_results(train_data$PTS_home, predictions_train, train_data)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg_home_model, s = optimal_lambda, newx = x_test)
+eval_results(test_data$PTS_home, predictions_test, test_data)
+
+#shrinkage
+shrinkage <- 5.66225 - 5.491986
+shrinkage
+```
+
+# Cross Validation for PTS_away
+
+For the train dataset:
+- RMSE = 0.009522715	
+- R^2 = 0.9999995
+
+For the test dataset:
+- RMSE = 0.009163777
+- R^2 = 0.9999995
+
+- The shrinkage value was 0.000358938, meaning that between the training data sample and the test data sample, the multiple R^2 of the model decreased by only 0.000358938, which is is comparatively a very slight drop. The low shrinkage value and low RMSE indicates that our ridge regression model for away team points worked relatively as well on the test data sample as it did on the training data it was optimized for. 
+
+```{r}
+# Prediction and evaluation on train data
+predictions_train <- predict(ridge_reg_away_model, s = optimal_lambda, newx = x)
+eval_results(train_data$PTS_away, predictions_train, train_data)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_reg_away_model, s = optimal_lambda, newx = x_test)
+eval_results(test_data$PTS_away, predictions_test, test_data)
+
+#shrinkage
+shrinkage <- 0.009522715 - 0.009163777
+shrinkage
+```
+
