@@ -7,11 +7,11 @@ In the following notebook, we use data from NBA games to create models that pred
 
 ```{r}
 library(tidyverse)
-library(dplyr)
 library(tidyr)
 library(stringr)
 library(ggplot2)
 library(lubridate)
+library(dplyr)
 ```
 
 # Importing the Data
@@ -211,8 +211,444 @@ head(final_game_data)
 ```
 
 ```{r}
+view(final_game_data)
+```
+
+
+```{r}
 write.csv(final_game_data, 'final_game_data.csv')
 ```
+
+
+```{r}
+rolling_avg <-read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/main/final_game_data_with_rolling_avg.csv")
+head(rolling_avg)
+```
+
+# Selecting needed variables for season_level stats
+```{r}
+season_level_avg <-  all_box_stats[, c("GAME_DATE_EST", "GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID", "Spread", "Total", "OREB", "PTS_home", "PTS_away", "OREB_home", "OREB_away", "DREB_home", "DREB_away", "FGM_home", "FGM_away", "FGA_home", "FGA_away", "FG3M_home", "FG3M_away", "FG3M", "FG3A_home", "FG3A_away", "FTM_home", "FTM_away", "FTA_home", "FTA_away",  "AST_home", "AST_away", "STL_home", "STL_away", "BLK_home", "BLK_away", "TO_home", "TO_away", "PF_home", "PF_away", "PM_home", "PM_away", "HOME_TEAM_WINS")]
+
+head(season_level_avg)
+```
+
+```{r}
+season_level_avg = left_join(season_level_avg,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
+                        rename(Home.Team=NAME) %>%
+                        left_join(team_names,by=c("VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                        rename(Away.Team=NAME)
+
+head(season_level_avg)
+```
+
+```{r}
+season_avg_ordered <- season_level_avg %>%
+  select(GAME_DATE_EST,Home.Team,Away.Team,everything())
+
+head(season_avg_ordered)
+```
+
+
+
+# Find home team season-level averages for 2014-2019
+```{r}
+season_level_avg_2014 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST <= "2015-4-15") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarize(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each) %>%
+  ungroup()
+
+
+head(season_level_avg_2014, 40)
+
+```
+
+```{r}
+season_level_avg_2015 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2015-10-27" & GAME_DATE_EST <= "2016-4-13") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each)
+
+head(season_level_avg_2015, 30)
+```
+
+```{r}
+season_level_avg_2016 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2016-10-25" & GAME_DATE_EST <= "2017-4-13") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each)
+
+head(season_level_avg_2016, 30)
+```
+
+```{r}
+season_level_avg_2017 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2017-10-17" & GAME_DATE_EST <= "2018-4-11") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each)
+
+head(season_level_avg_2017, 30)
+```
+
+```{r}
+season_level_avg_2018 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2018-10-16" & GAME_DATE_EST <= "2019-4-10") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each)
+
+head(season_level_avg_2018, 30)
+```
+
+```{r}
+season_level_avg_2019 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2018-10-22" & GAME_DATE_EST <= "2019-8-14") %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each)
+
+head(season_level_avg_2019, 30)
+```
+
+# Find away team season-level averages for 2014-2019
+```{r}
+season_level_avg_away_2014 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST <= "2015-4-15") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2014)
+```
+
+```{r}
+season_level_avg_away_2015 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2015-10-27" & GAME_DATE_EST <= "2016-4-13") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2015)
+```
+
+```{r}
+season_level_avg_away_2016 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2016-10-25" & GAME_DATE_EST <= "2017-4-13") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2016)
+```
+
+```{r}
+season_level_avg_away_2017 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2017-10-17" & GAME_DATE_EST <= "2018-4-11") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2017)
+```
+
+```{r}
+season_level_avg_away_2018 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2018-10-16" & GAME_DATE_EST <= "2019-4-10") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2018)
+```
+
+```{r}
+season_level_avg_away_2019 <- season_avg_ordered %>%
+  filter(GAME_DATE_EST >= "2018-10-22" & GAME_DATE_EST <= "2019-8-14") %>%  
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each)
+
+head(season_level_avg_away_2019)
+```
+
+# Joining averages back with game matchup dataset
+```{r}
+avg_joined_2014 <- season_level_avg_2014 %>%
+  left_join(season_level_avg_away_2014, by=c("GAME_ID"))
+
+avg_joined_2015 <- season_level_avg_2015 %>%
+  left_join(season_level_avg_away_2015, by=c("GAME_ID"))
+
+avg_joined_2016 <- season_level_avg_2016 %>%
+  left_join(season_level_avg_away_2016, by=c("GAME_ID"))
+
+avg_joined_2017 <- season_level_avg_2017 %>%
+  left_join(season_level_avg_away_2017, by=c("GAME_ID"))
+
+avg_joined_2018 <- season_level_avg_2018 %>%
+  left_join(season_level_avg_away_2018, by=c("GAME_ID"))
+
+avg_joined_2019 <- season_level_avg_2019 %>%
+  left_join(season_level_avg_away_2019, by=c("GAME_ID"))
+
+head(avg_joined_2014)
+head(avg_joined_2015)
+head(avg_joined_2016)
+head(avg_joined_2017)
+head(avg_joined_2018)
+head(avg_joined_2019)
+```
+
+# Compile each year into same dataset
+```{r}
+avg_and_game <- rbind(avg_joined_2014, avg_joined_2015, avg_joined_2016, avg_joined_2017, avg_joined_2018, avg_joined_2019)
+
+head(avg_and_game)
+```
+
+
+# Create dataset of only season-level averages
+
+```{r}
+season_level_only <- avg_and_game %>%
+  select(-games_each.x, -games_each.y, -GAME_DATE_EST.y) %>%
+  rename("GAME_DATE_EST" = GAME_DATE_EST.x)
+
+head(season_level_only)
+```
+
+```{r}
+head(season_avg_ordered)
+```
+
+```{r}
+joining_table <- season_avg_ordered[, c("GAME_DATE_EST", "GAME_ID", "Home.Team", "Away.Team", "Spread", "Total", "OREB")]
+head(joining_table)
+```
+
+
+
+```{r}
+season_level_only_1 <-  merge(season_level_only, joining_table, by = c("GAME_ID"))
+
+head(season_level_only_1)
+```
+
+
+# Reordering variables
+```{r}
+season_level_only_final <- season_level_only_1[, c("GAME_DATE_EST.y", "Home.Team", "Away.Team", "Spread", "Total", "OREB", "PTS_home_avg", "PTS_away_avg", "OREB_home_avg", "OREB_away_avg", "DREB_home_avg", "DREB_away_avg", "FGM_home_avg", "FGM_away_avg", "FGA_home_avg", "FGA_away_avg", "FG3M_home_avg", "FG3M_away_avg", "FG3A_home_avg", "FG3A_away_avg", "FTM_home_avg", "FTM_away_avg", "FTA_home_avg", "FTA_away_avg", "AST_home_avg", "AST_away_avg", "STL_home_avg", "STL_away_avg", "BLK_home_avg", "BLK_away_avg", "TO_home_avg", "TO_away_avg", "PF_home_avg", "PF_away_avg", "PM_home_avg", "PM_away_avg")]
+
+season_level_stats <- season_level_only_final %>%
+  rename("GAME_DATE_EST"= GAME_DATE_EST.y)
+
+head(season_level_stats,100)
+```
+
+
+# Write CSV
+```{r}
+write.csv(season_level_stats, 'season_level_stats.csv')
+```
+
+
+
 
 
 
