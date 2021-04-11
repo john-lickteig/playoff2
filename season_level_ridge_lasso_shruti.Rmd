@@ -1,0 +1,396 @@
+---
+title: "Playoffs 2 Ridge/Lasso Regression Models SEASON LEVEL"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(utils)
+library(MASS)
+```
+
+
+# Importing the Data
+
+```{r}
+## Removed plus minus
+season <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_stats.csv")
+season_averages <- subset(season, select = -c(PM_home_avg,PM_away_avg))
+head(season_averages)
+```
+
+```{r}
+## Remove plus-minus 
+games_final_with_PM <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_for_against.csv")
+games_final <- subset(games_final_with_PM, select = -c(PM_home_avg,PM_away_avg,PM_home_against_avg,PM_away_against_avg))
+head(games_final)
+```
+
+# Data Partitioning: Test and Train Data
+
+Randomly splitting up the data so that the train set contains 85% of the data while test set contains the remaining 15% percent.
+
+```{r}
+set.seed(100) 
+
+index = sample(1:nrow(season_level_stats), 0.85*nrow(season_level_stats)) 
+
+train_data = games_final[index, -c(1:4)] # Create the training data,
+test_data = games_final[-index,-c(1:4)] # Create the test data, excluding non-numeric features
+
+dim(train_data)
+dim(test_data)
+```
+
+
+# Home pts stepwise model
+
+Multiple R-squared:  0.2974,	
+Adjusted R-squared:  0.2953 
+
+Call:
+lm(formula = PTS_home ~ PTS_home_avg + PTS_home_against_avg + 
+    PTS_away_avg + PTS_away_against_avg + FGA_away_against_avg + 
+    FG3M_home_against_avg + FG3M_away_avg + FG3M_away_against_avg + 
+    FG3A_home_against_avg + FG3A_away_avg + FG3A_away_against_avg + 
+    FTA_away_avg + FTA_away_against_avg + AST_home_against_avg + 
+    AST_away_against_avg + BLK_away_avg + TO_home_avg + TO_away_against_avg + 
+    PF_away_against_avg, data = train_data)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-41.730  -7.253  -0.237   7.094  43.605 
+
+```{r}
+## Home points stepwise model with opponent averages included
+## Removed all individual game statistics except PTS_home (This is so we only run the regression with the season averages, knowing the spread/total messes up the regression)
+
+full.model.PTS_home <- lm(PTS_home ~.-Spread -Total -OREB -PTS_away, data = train_data)
+step.model.PTS_home <- stepAIC(full.model.PTS_home, direction = "both", trace = FALSE)
+summary(step.model.PTS_home)
+```
+
+
+#Away Points stepwise model
+
+Multiple R-squared:  0.2822,	
+Adjusted R-squared:  0.2799
+
+Call:
+lm(formula = PTS_away ~ PTS_home_against_avg + PTS_away_avg + 
+    PTS_away_against_avg + DREB_away_avg + FGA_away_against_avg + 
+    FG3M_home_against_avg + FG3M_away_avg + FG3M_away_against_avg + 
+    FG3A_home_against_avg + FG3A_away_avg + FG3A_away_against_avg + 
+    FTA_home_against_avg + FTA_away_avg + FTA_away_against_avg + 
+    AST_home_against_avg + AST_away_against_avg + BLK_away_avg + 
+    TO_home_avg + PF_home_avg + PF_away_against_avg, data = train_data)
+    
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-41.090  -7.368  -0.130   7.044  51.113 
+
+```{r}
+## Away points model with opponents averages included
+## Removed all individual game statistics except PTS_away (This is so we only run the regression with the season averages, knowing the spread/total messes up the regression)
+
+full.model.PTS_away <- lm(PTS_away ~.-Spread -Total -OREB -PTS_home, data = train_data)
+step.model.PTS_away <- stepAIC(full.model.PTS_away, direction = "both", trace = FALSE)
+summary(step.model.PTS_away)
+```
+
+
+#STEPWISE MODELS FOR PTS_home and PTS_away
+- We started off with two linear models, one using PTS_home as the response, the other PTS_away, with other all numeric variables as predictors, except the numeric variables that would have been highly correlated among themselves and pose a mutli-collinearity (i.e. Spread, Total, and depending on which model PTS_home or PTS_away respectively), and then using the stepwise selection method with Cp as the criteria to narrow predictors down to the most significant one(s) for predicting PTS_away, we came up with our baseline linear regression models with equation below
+
+- The significance codes `***` and `**` in the output shows that only few features are important predictors at or above the alpha=0.01 significance level.
+
+- Both baseline linear models have more than 30 predictors. With such a large amount of predictors, both models’ complexities increase, which resulted in an increased variances and decreased biases. Therefore, as suggested by the extremely high adjusted R^2 values of 1 for both baseline models, with no penalization, the models are being overfit (i.e. incorporating every data point, including outliers/noise from the training set), likely reducing their predictive strength on a new test dataset.
+
+
+# Stepwise on PTS_home model
+
+FOR PTS_home:
+Call:
+lm(formula = (PTS_home) ~ PTS_home_avg + PTS_away_against_avg + 
+    FG3A_away_against_avg + FG3A_home_against_avg + OREB_away_against_avg + 
+    BLK_away_avg + FG3M_home_against_avg + STL_home_avg + TO_away_avg + 
+    PF_away_avg + FG3M_away_against_avg + FG3A_away_avg, data = train_data)
+
+Coefficients:
+          (Intercept)           PTS_home_avg   PTS_away_against_avg  FG3A_away_against_avg  FG3A_home_against_avg  
+            -66.05161                0.93749                0.77920               -0.56371               -0.51255  
+OREB_away_against_avg           BLK_away_avg  FG3M_home_against_avg           STL_home_avg            TO_away_avg  
+              0.79646               -0.79152                0.74383                0.26839                0.31436  
+          PF_away_avg  FG3M_away_against_avg          FG3A_away_avg  
+             -0.22274                0.67154               -0.04976  
+
+
+After performing the stepwise selection algorithm, the AIC decreased from 2615.55 (for the empty model) to 2.07 (above lm) and the model had Multiple R-squared of  0.2956, and Adjusted R-squared of  0.2943.
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm(PTS_home ~.-Spread -Total -OREB -PTS_away, data=train_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_home)~1,data=train_data)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+```{r}
+stepwise_home = lm(formula = (PTS_home) ~ PTS_home_avg + PTS_away_against_avg + 
+    FG3A_away_against_avg + FG3A_home_against_avg + OREB_away_against_avg + 
+    BLK_away_avg + FG3M_home_against_avg + STL_home_avg + TO_away_avg + 
+    PF_away_avg + FG3M_away_against_avg + FG3A_away_avg, data = train_data)
+summary(stepwise_home)
+```
+
+#Stepwise on PTS_away
+
+FOR PTS_away:
+Call:
+lm(formula = (PTS_away) ~ PTS_away_avg + PTS_home_against_avg + 
+    FG3A_away_against_avg + FG3A_home_against_avg + OREB_away_against_avg + 
+    FG3M_home_against_avg + TO_home_avg + AST_home_against_avg + 
+    BLK_away_avg + FG3A_away_avg + FG3M_home_avg, data = train_data)
+
+Coefficients:
+          (Intercept)           PTS_away_avg   PTS_home_against_avg  FG3A_away_against_avg  FG3A_home_against_avg  
+            -71.56225                0.93685                0.84118               -0.35375               -0.64222  
+OREB_away_against_avg  FG3M_home_against_avg            TO_home_avg   AST_home_against_avg           BLK_away_avg  
+              0.41136                0.87147                0.31689                0.24429               -0.37606  
+        FG3A_away_avg          FG3M_home_avg  
+             -0.06602               -0.13685  
+
+
+After performing the stepwise selection algorithm, the AIC decreased from 2424.29 (for the empty model) to 4.59 (above lm), and resulted in a model with Multiple R-squared of 0.2796 and Adjusted R-squared of 0.2784 
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm(PTS_away ~.-Spread -Total -OREB -PTS_home, data=train_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none=lm((PTS_away)~1,data=train_data)
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+```{r}
+stepwise_away = lm(formula = (PTS_away) ~ PTS_away_avg + PTS_home_against_avg + 
+    FG3A_away_against_avg + FG3A_home_against_avg + OREB_away_against_avg + 
+    FG3M_home_against_avg + TO_home_avg + AST_home_against_avg + 
+    BLK_away_avg + FG3A_away_avg + FG3M_home_avg, data = train_data)
+summary(stepwise_away)
+```
+
+
+
+
+
+# Elastic Net (LASSO/Ridge "hybrid") on PTS_home and PTS_away
+
+- To create models with reduced complexity while also minimizing the loss of information and accuracy from variable selection, we used regularization via elastic net regression, 
+
+- Elastic net regression works by combining the penalties of ridge (L2-Norm) and LASSO  (L1-Norm) regressions and achieves a good balance between the bias and variance trade-off, and does well when the dataset is large/has many predictors (which ours does)
+
+- note: from here on, I'm comparing multiple R^2 instead of adjusted R^2 bc multiple R^2 is used to compare between models that may have different predictors
+
+
+#Elastic net for PTS_home
+
+- The stepwise PTS_home model had a Multiple R-squared of 0.2956
+- Elastic net (ridge and lasso combo) regression PTS_home model experienced a slight increased in the multiple R^2 to 0.2977875
+
+- note: caret package algorithm is also automatically doing multiple iterations of cross validation to tune the penalty parameter lambda and alpha to optimal values (lambda=0.01671044 alpha=0.9798472 were optimal), so we don't have to tune manually
+
+```{r}
+library(caret)
+
+# Set training control
+train_control <- trainControl(method = "repeatedcv",
+                              number = 10,
+                              repeats = 5,
+                              search = "random",
+                              verboseIter = TRUE)
+
+# Train the model
+elastic_net_model_home <- train(PTS_home ~.-Spread -Total -OREB -PTS_away,
+                           data = train_data,
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           tuneLength = 10,
+                           trControl = train_control)
+
+# This is best tuning parameter, which is being used
+elastic_net_model_home$bestTune
+
+# Check multiple R-squared
+y_hat_enet <- predict(elastic_net_model_home, train_data)
+rsq_enet <- cor(train_data$PTS_home, y_hat_enet)^2
+rsq_enet
+```
+
+
+
+#Elastic net for PTS_away
+- The stepwise PTS_home model had a Multiple R-squared of 0.2796
+- Elastic net (ridge and lasso combo) regression PTS_home model experienced a slight increased in the multiple R^2 to 0.2822984
+
+- note: caret package algorithm is also automatically doing multiple iterations of cross validation to tune the penalty parameter lambda and alpha to optimal values (lambda=0.02377361 alpha=0.6666384 were optimal), so we don't have to tune manually
+
+```{r}
+library(caret)
+
+# Set training control
+train_control <- trainControl(method = "repeatedcv",
+                              number = 10,
+                              repeats = 5,
+                              search = "random",
+                              verboseIter = TRUE)
+
+# Train the model
+elastic_net_model_away <- train(PTS_away ~.-Spread -Total -OREB -PTS_home,
+                           data = train_data,
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           tuneLength = 10,
+                           trControl = train_control)
+
+# This is best tuning parameter, which is being used
+elastic_net_model_away$bestTune
+
+# Check multiple R-squared
+y_hat_enet <- predict(elastic_net_model_away, train_data)
+rsq_enet <- cor(train_data$PTS_away, y_hat_enet)^2
+rsq_enet
+```
+#Cross Validation for all models
+
+- this is just a function to streamline the cross validation; run it before running the chunks below
+```{r}
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics in a clean output
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+}
+
+```
+
+
+
+# Cross Validation for PTS_home stepwise
+
+For the train dataset:
+- RMSE = 10.73398 points
+- R^2 = 0.2955974
+
+For the test dataset:
+- RMSE = 10.80435 points
+- R^2 = 0.2572604
+
+- Between the training data sample and the test data sample, the multiple R^2 of the model only dropped by 0.038337 (i.e. shrinkage value is relatively close to 0) and the RMSE only experienced a slight increase from 10.73398 points on the training data to 10.80435 points from the test dataset. The low shrinkage value as well as the relatively small drop in RMSE indicates that our stepwise model for home team points comparatively worked almost as well on the test data sample as it did on the training data it was optimized for, and thus will likely generalize well to new datasets in order to make predictions of PTS_home values
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(stepwise_home, train_data)
+eval_results(train_data$PTS_home, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(stepwise_home, test_data)
+eval_results(test_data$PTS_home, predictions_test, test_data)
+
+shrinkage_home_stepwise = 0.2955974 - 0.2572604
+shrinkage_home_stepwise
+```
+
+# Cross Validation for PTS_away stepwise
+
+For the train dataset:
+- RMSE = 10.8992 points
+- R^2 = 0.2796499
+
+For the test dataset:
+- RMSE = 10.6604 points
+- R^2 = 0.2653622
+
+- Between the training data sample and the test data sample, the multiple R^2 of the model only dropped by 0.0142877 (i.e. shrinkage value is relatively close to 0) and the RMSE actually experienced a decrease increase from 10.8992 points on the training data to 10.6604 points from the test dataset. The low shrinkage value as well as the improved RMSE indicates that our stepwise model for away team points comparatively worked just as well on the test data sample as it did on the training data it was optimized for, and will likely generalize well to new datasets in order to make predictions of PTS_away values
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(stepwise_away, train_data)
+eval_results(train_data$PTS_away, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(stepwise_away, test_data)
+eval_results(test_data$PTS_away, predictions_test, test_data)
+
+shrinkage_away_stepwise = 0.2796499 - 0.2653622
+shrinkage_away_stepwise
+```
+
+
+
+# Cross Validation for PTS_home elastic net
+
+For the train dataset:
+- RMSE = 10.71742 points
+- R^2 = 0.29777
+
+For the test dataset:
+- RMSE = 10.78693 points
+- R^2 = 0.2596532
+
+- Between the training data sample and the test data sample, the multiple R^2 of the model only dropped by 0.0381168 (i.e. shrinkage value is relatively close to 0) and the RMSE increase only slightly from 10.71742 points on the training data to 10.78693 points from the test dataset. The low shrinkage value as well as the relatively small decrease RMSE indicates that our elastic net model for home team points comparatively worked almost as well on the test data sample as it did on the training data it was optimized for, and will likely generalize well to new datasets in order to make predictions of PTS_home values
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(elastic_net_model_home, train_data)
+eval_results(train_data$PTS_home, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(elastic_net_model_home, test_data)
+eval_results(test_data$PTS_home, predictions_test, test_data)
+
+shrinkage_home_elastic = 0.29777 - 0.2596532
+shrinkage_home_elastic
+```
+
+
+# Cross Validation for PTS_away elastic net
+
+For the train dataset:
+- RMSE = 10.8793 points
+- R^2 = 0.2822784
+
+For the test dataset:
+- RMSE = 10.64026 points
+- R^2 = 0.2681363
+
+- Between the training data sample and the test data sample, the multiple R^2 of the model only dropped by 0.0141421 (i.e. shrinkage value is relatively close to 0) and the RMSE increase only slightly from 10.8793 points on the training data to 10.64026 points from the test dataset. The low shrinkage value as well as the relatively small decrease RMSE indicates that our elastic net model for away team points comparatively worked almost as well on the test data sample as it did on the training data it was optimized for, and will likely generalize well to new datasets in order to make predictions of PTS_away values.
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(elastic_net_model_away, train_data)
+eval_results(train_data$PTS_away, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(elastic_net_model_away, test_data)
+eval_results(test_data$PTS_away, predictions_test, test_data)
+
+shrinkage_away_elastic = 0.2822784 - 0.2681363
+shrinkage_away_elastic
+```
