@@ -1,0 +1,76 @@
+---
+title: "Playoffs 2"
+author: "Brent Tompkins"
+date: "4/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(utils)
+library(MASS)
+```
+
+```{r}
+## Removed plus minus
+season <- read.csv("season_level_stats.csv")
+season_averages <- subset(season, select = -c(PM_home_avg,PM_away_avg))
+head(season_averages)
+```
+
+```{r}
+## stepwise model for spread
+full.model <- lm(Spread ~., data = season_averages)
+step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
+summary(step.model)
+```
+
+```{r}
+## stepwise model for total
+full.model.total <- lm(Total ~., data = season_averages)
+step.model.total <- stepAIC(full.model.total, direction = "both", trace = FALSE)
+summary(step.model.total)
+```
+
+```{r}
+## Remove plus-minus 
+games_final_with_PM <- read.csv("season_level_for_against.csv")
+games_final <- subset(games_final_with_PM, select = -c(PM_home_avg,PM_away_avg,PM_home_against_avg,PM_away_against_avg))
+head(games_final)
+```
+```{r}
+## Spread model with opponent averages included
+## We take out home and away PTS for this regression because if they are left in it will calculate the Spread by just subtracting them
+games_final_no_PTS <- subset(games_final, select = -c(PTS_home,PTS_away))
+full.model.Spread <- lm(Spread ~., data = games_final_no_PTS)
+step.model.Spread <- stepAIC(full.model.Spread, direction = "both", trace = FALSE)
+summary(step.model.Spread)
+```
+
+```{r}
+## Home points stepwise model with opponent averages included
+## Removed all individual game statistics except PTS_home (This is so we only run the regression with the season averages, knowing the spread/total messes up the regression)
+games_final_all_season_averages_home <- subset(games_final, select = -c(Spread,Total,OREB,PTS_away))
+full.model.PTS_home <- lm(PTS_home ~., data = games_final_all_season_averages_home)
+step.model.PTS_home <- stepAIC(full.model.PTS_home, direction = "both", trace = FALSE)
+summary(step.model.PTS_home)
+```
+
+```{r}
+## Away points model with opponents averages included
+## Removed all individual game statistics except PTS_away (This is so we only run the regression with the season averages, knowing the spread/total messes up the regression)
+games_final_all_season_averages <- subset(games_final, select = -c(Spread,Total,OREB,PTS_home))
+full.model.PTS_away <- lm(PTS_away ~., data = games_final_all_season_averages)
+step.model.PTS_away <- stepAIC(full.model.PTS_away, direction = "both", trace = FALSE)
+summary(step.model.PTS_away)
+```
+
+```{r}
+## Total model with opponent averages included
+## We take out home and away PTS for this regression because if they are left in it will calculate the Total by just adding them
+games_final_no_PTS <- subset(games_final, select = -c(PTS_home,PTS_away))
+full.model.Total <- lm(Total ~., data = games_final_no_PTS)
+step.model.Total <- stepAIC(full.model.Total, direction = "both", trace = FALSE)
+summary(step.model.Total)
+```
+
