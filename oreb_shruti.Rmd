@@ -33,7 +33,7 @@ As we did for the aforementioned models, we started off by  splitting up the dat
 ```{r}
 set.seed(100) 
 
-index = sample(1:nrow(season_level_stats), 0.85*nrow(season_level_stats)) 
+index = sample(1:nrow(games_final), 0.85*nrow(games_final)) 
 
 train_data = games_final[index, -c(1:4)] # Create the training data,
 test_data = games_final[-index,-c(1:4)] # Create the test data, excluding non-numeric features
@@ -80,7 +80,8 @@ step(none,scope=list(upper=Full),scale=MSE)
 
 
 ```{r}
-stepwise_oreb <- glm(formula = OREB ~ FTA_home_against_avg + TO_away_avg, family = "poisson", data = train_data)
+stepwise_oreb <- glm(formula = OREB ~ FTA_home_against_avg + TO_away_avg, family = "poisson", 
+    data = train_data)
 summary(stepwise_oreb)
 ```
 
@@ -95,7 +96,7 @@ After trying different neuron sizes, we ended up creating a single layer neural 
 library(dplyr)
 library(neuralnet)
 
-neuralnet_oreb <- neuralnet(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data=train_data, hidden=10, act.fct = "logistic", linear.output = FALSE)
+neuralnet_oreb <- neuralnet(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data=train_data, hidden=3, act.fct = "logistic", linear.output = FALSE)
 summary(neuralnet_oreb)
 plot(neuralnet_oreb)
 ```
@@ -137,9 +138,6 @@ eval_results(train_data$OREB, predictions_train, train_data)
 # Make predictions on test set
 predictions_test <- predict(stepwise_oreb, test_data)
 eval_results(test_data$OREB, predictions_test, test_data)
-
-MSE.lm <- sum((pr.lm - test$medv)^2)/nrow(test)
-
 
 shrinkage_stepwise_oreb= -10.95776 - -11.47495
 shrinkage_stepwise_oreb
