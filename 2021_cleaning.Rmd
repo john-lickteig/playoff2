@@ -1,0 +1,404 @@
+---
+title: "2021 Data Cleaning"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(corrplot)
+```
+
+# Importing the Data
+```{r}
+games <-  read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/main/games.csv")
+game_details_1 <- read.csv("games_details.csv")
+teams <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/main/teams.csv")
+```
+
+# Previewing Data
+```{r}
+head(games)
+head(game_details)
+head(teams)
+```
+
+
+*Part 1 - Cleaning the games dataset*
+
+```{r}
+head(games)
+```
+
+# Isolating NA columns in games
+```{r}
+games_na <- games[rowSums(is.na(games)) > 0, ]
+head(games_na, 99)
+```
+99 observations are missing all in-game statistics. We will drop these rows from the dataset.
+
+```{r}
+games$GAME_DATE_EST <- as.Date(games$GAME_DATE_EST)
+games_final_1 <- games %>%
+  drop_na() %>%
+  filter(GAME_DATE_EST >= "2020-12-22")
+head(games_final_1)
+```
+
+
+*Part 2 - Cleaning the game_details dataset*
+
+```{r}
+head(game_details, 300)
+```
+
+# Adding dates to player performances
+```{r}
+game_details_dates_1 <- game_details_1 %>%
+  left_join(games_final_1, by="GAME_ID") %>%
+  select(GAME_DATE_EST, colnames(game_details_1))
+head(game_details_dates_1)
+```
+
+# Removing observations from games before 2014
+
+```{r}
+game_details_dates_1$GAME_DATE_EST <- as.Date(game_details_dates_1$GAME_DATE_EST)
+head(game_details_dates, 600)
+```
+
+
+```{r}
+game_details_new_1 <- game_details_dates_1 %>%
+  filter(GAME_DATE_EST >= "2020-12-22")
+head(game_details_new_1,200)
+```
+
+```{r}
+game_details_final_1 <- game_details_new_1 %>%
+  filter(COMMENT == "")
+head(game_details_final_1)
+write.csv(game_details_final, '2021_game_details_cleaned.csv')
+```
+
+*Part 3 - Offensive Rebounding Cleaning*
+
+# Condense Game Data
+```{r}
+games_data_1 <- games_final_1 %>%
+            select(GAME_DATE_EST,GAME_ID,HOME_TEAM_ID,VISITOR_TEAM_ID,PTS_home,PTS_away,HOME_TEAM_WINS) %>%
+            mutate(Spread=PTS_home-PTS_away,Total=PTS_home+PTS_away)
+head(games_data)
+```
+
+# Aggregate all player stats from each game and assign to team's respective GAME_ID
+```{r}
+sum_stats_1 = game_details_final_1 %>%
+          select (TEAM_ABBREVIATION,GAME_ID,TEAM_ID,FGM,FGA,FG3M,FG3A,FTM,FTA,OREB,DREB,AST,STL,BLK,TO,PF,PLUS_MINUS) %>%
+          group_by(TEAM_ABBREVIATION,GAME_ID,TEAM_ID) %>%
+          summarize(OREB=sum(OREB,na.rm=T),
+                    DREB=sum(DREB,na.rm=T),
+                    FGM=sum(FGM,na.rm=T),
+                    FGA=sum(FGA,na.rm=T),
+                    FG3M=sum(FG3M,na.rm=T),
+                    FG3A=sum(FG3A,na.rm=T),
+                    FTM=sum(FTM,na.rm=T),
+                    FTA=sum(FTA,na.rm=T),
+                    AST=sum(AST,na.rm=T),
+                    STL=sum(STL,na.rm=T),
+                    BLK=sum(BLK,na.rm=T),
+                    TO=sum(TO,na.rm=T),
+                    PF=sum(PF,na.rm=T),
+                    PLUS_MINUS=sum(PLUS_MINUS,na.rm=T)) %>%
+          ungroup()
+head(sum_stats_1)
+```
+
+
+# Merge All Aggregated Team Stats into Game Data
+```{r}
+final_game_data_1 = left_join(games_data_1,select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","HOME_TEAM_ID"="TEAM_ID")) %>%
+                    rename(OREB_home=OREB) %>%
+                    left_join(select(OREB,-TEAM_ABBREVIATION),by=c("GAME_ID","VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                    rename(OREB_away=OREB) %>%
+                    mutate(OREB=OREB_home+OREB_away)
+
+head(final_game_data_1)
+```
+
+#Join game data with each team and point spread
+```{r}
+all_box_stats_1 <- games_data_1 %>%
+  left_join(sum_stats_1,select(OREB,DREB,FGM,FGA,FG3M,FG3A,FTM,FTA,AST,STL,BLK,TO,PF,-TEAM_ABBREVIATION),by=c("GAME_ID","HOME_TEAM_ID"="TEAM_ID")) %>%
+  rename(OREB_home=OREB,
+         DREB_home=DREB,
+         FGM_home=FGM,
+         FGA_home=FGA,
+         FG3M_home=FG3M,
+         FG3A_home=FG3A,
+         FTM_home=FTM,
+         FTA_home=FTA,
+         AST_home=AST,
+         STL_home=STL,
+         BLK_home=BLK,
+         TO_home=TO,
+         PF_home=PF,
+         PM_home=PLUS_MINUS) %>%
+  left_join(sum_stats_1,select(OREB,DREB,FGM,FGA,FG3M,FG3A,FTM,FTA,AST,STL,BLK,TO,PF,-TEAM_ABBREVIATION),by=c("GAME_ID","VISITOR_TEAM_ID"="TEAM_ID")) %>%
+  rename(OREB_away=OREB,
+         DREB_away=DREB,
+         FGM_away=FGM,
+         FGA_away=FGA,
+         FG3M_away=FG3M,
+         FG3A_away=FG3A,
+         FTM_away=FTM,
+         FTA_away=FTA,
+         AST_away=AST,
+         STL_away=STL,
+         BLK_away=BLK,
+         TO_away=TO,
+         PF_away=PF,
+         PM_away=PLUS_MINUS) %>%
+  mutate(OREB=OREB_home+OREB_away,
+         DREB=DREB_home+DREB_away,
+         FGM=FGM_home+FGM_away,
+         FGA=FGA_home+FGA_away,
+         FG3M=FG3M_home+FG3M_away,
+         FG3A=FG3A_home+FG3A_away,
+         FTM=FTM_home+FTM_away,
+         FTA=FTA_home+FTA_away,
+         AST=AST_home+AST_away,
+         STL=STL_home+STL_away,
+         BLK=BLK_home+BLK_away,
+         TO=TO_home+TO_away,
+         PF=PF_home+PF_away) %>%
+  subset(select=-c(TEAM_ABBREVIATION.x,TEAM_ABBREVIATION.y))
+
+head(all_box_stats_1)
+```
+
+#Reorder columns so home, away, and total metrics are all next to one another
+```{r}
+all_box_stats_1 <- all_box_stats_1[ ,c("GAME_DATE_EST", "GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID", "PTS_home", "PTS_away", "Spread", "Total", "OREB_home", "OREB_away", "OREB", "DREB_home", "DREB_away", "DREB", "FGM_home", "FGM_away", "FGM", "FGA_home", "FGA_away", "FGA", "FG3M_home", "FG3M_away", "FG3M", "FG3A_home", "FG3A_away", "FG3A", "FTM_home", "FTM_away", "FTM", "FTA_home", "FTA_away", "FTA", "AST_home", "AST_away", "AST", "STL_home", "STL_away", "STL", "BLK_home", "BLK_away", "BLK", "TO_home", "TO_away", "TO", "PF_home", "PF_away", "PF", "PM_home", "PM_away", "HOME_TEAM_WINS")]
+head(all_box_stats_1)
+```
+
+
+
+# Creating Home and Away Team Variables
+```{r}
+team_names <- teams %>%
+            select(TEAM_ID,CITY,NICKNAME) %>%
+            unite(NAME,CITY,NICKNAME,sep=" ")
+head(team_names)
+```
+
+# Merging Team Name into Original Data
+```{r}
+final_game_data_1 = left_join(all_box_stats_1,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
+                        rename("Home Team"=NAME) %>%
+                        left_join(team_names,by=c("VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                        rename("Away Team"=NAME) %>%
+                        select(GAME_DATE_EST,"Home Team","Away Team",everything()) %>%
+                        select(-GAME_ID,-HOME_TEAM_ID,-VISITOR_TEAM_ID)
+head(final_game_data_1)
+```
+
+```{r}
+view(final_game_data)
+```
+
+
+```{r}
+write.csv(final_game_data, 'final_game_data.csv')
+```
+
+
+```{r}
+rolling_avg <-read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/main/final_game_data_with_rolling_avg.csv")
+head(rolling_avg)
+```
+
+# Selecting needed variables for season_level stats
+```{r}
+season_level_avg_1 <-  all_box_stats_1[, c("GAME_DATE_EST", "GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID", "Spread", "Total", "OREB", "PTS_home", "PTS_away", "OREB_home", "OREB_away", "DREB_home", "DREB_away", "FGM_home", "FGM_away", "FGA_home", "FGA_away", "FG3M_home", "FG3M_away", "FG3M", "FG3A_home", "FG3A_away", "FTM_home", "FTM_away", "FTA_home", "FTA_away",  "AST_home", "AST_away", "STL_home", "STL_away", "BLK_home", "BLK_away", "TO_home", "TO_away", "PF_home", "PF_away", "PM_home", "PM_away", "HOME_TEAM_WINS")]
+
+head(season_level_avg_1)
+```
+
+```{r}
+season_level_avg_1 = left_join(season_level_avg_1,team_names,by=c("HOME_TEAM_ID"="TEAM_ID")) %>%
+                        rename(Home.Team=NAME) %>%
+                        left_join(team_names,by=c("VISITOR_TEAM_ID"="TEAM_ID")) %>%
+                        rename(Away.Team=NAME)
+
+head(season_level_avg_1)
+```
+
+```{r}
+season_avg_ordered_1 <- season_level_avg_1 %>%
+  select(GAME_DATE_EST,Home.Team,Away.Team,everything())
+
+head(season_avg_ordered_1)
+```
+
+
+
+# Find home team season-level averages for 2014-2019
+```{r}
+season_level_avg_2021_home <- season_avg_ordered_1 %>%
+  group_by(HOME_TEAM_ID) %>%
+  summarize(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            PTS_home = PTS_home,
+            games_each = n(),
+            PTS_home_avg = sum(PTS_home)/games_each,
+            OREB_home_avg = sum(OREB_home)/games_each,
+            DREB_home_avg = sum(DREB_home)/games_each,
+            FGM_home_avg = sum(FGM_home)/games_each,
+            FGA_home_avg = sum(FGA_home)/games_each,
+            FG3M_home_avg = sum(FG3M_home)/games_each,
+            FG3A_home_avg = sum(FG3A_home)/games_each,
+            FTM_home_avg = sum(FTM_home)/games_each,
+            FTA_home_avg = sum(FTA_home)/games_each,
+            AST_home_avg = sum(AST_home)/games_each,
+            STL_home_avg = sum(STL_home)/games_each,
+            BLK_home_avg = sum(BLK_home)/games_each,
+            TO_home_avg = sum(TO_home)/games_each,
+            PF_home_avg = sum(PF_home)/games_each,
+            PM_home_avg = sum(PM_home)/games_each,
+            PTS_home_against_avg = sum(PTS_away)/games_each,
+            OREB_home_against_avg = sum(OREB_away)/games_each,
+            DREB_home_against_avg = sum(DREB_away)/games_each,
+            FGM_home_against_avg = sum(FGM_away)/games_each,
+            FGA_home_against_avg = sum(FGA_away)/games_each,
+            FG3M_home_against_avg = sum(FG3M_away)/games_each,
+            FG3A_home_against_avg = sum(FG3A_away)/games_each,
+            FTM_home_against_avg = sum(FTM_away)/games_each,
+            FTA_home_against_avg = sum(FTA_away)/games_each,
+            AST_home_against_avg = sum(AST_away)/games_each,
+            STL_home_against_avg = sum(STL_away)/games_each,
+            BLK_home_against_avg = sum(BLK_away)/games_each,
+            TO_home_against_avg = sum(TO_away)/games_each,
+            PF_home_against_avg = sum(PF_away)/games_each,
+            PM_home_against_avg = sum(PM_away)/games_each)
+
+
+head(season_level_avg_2021_home, 40)
+
+```
+
+
+
+# Find away team season-level averages for 2014-2019
+```{r}
+season_level_avg_away_2021 <- season_avg_ordered_1 %>%
+  group_by(VISITOR_TEAM_ID) %>%
+  summarise(GAME_DATE_EST = GAME_DATE_EST,
+            GAME_ID = GAME_ID,
+            PTS_away = PTS_away,
+            games_each = n(),
+            PTS_away_avg = sum(PTS_away)/games_each,
+            OREB_away_avg = sum(OREB_away)/games_each,
+            DREB_away_avg = sum(DREB_away)/games_each,
+            FGM_away_avg = sum(FGM_away)/games_each,
+            FGA_away_avg = sum(FGA_away)/games_each,
+            FG3M_away_avg = sum(FG3M_away)/games_each,
+            FG3A_away_avg = sum(FG3A_away)/games_each,
+            FTM_away_avg = sum(FTM_away)/games_each,
+            FTA_away_avg = sum(FTA_away)/games_each,
+            AST_away_avg = sum(AST_away)/games_each,
+            STL_away_avg = sum(STL_away)/games_each,
+            BLK_away_avg = sum(BLK_away)/games_each,
+            TO_away_avg = sum(TO_away)/games_each,
+            PF_away_avg = sum(PF_away)/games_each,
+            PM_away_avg = sum(PM_away)/games_each,
+            PTS_away_against_avg = sum(PTS_home)/games_each,
+            OREB_away_against_avg = sum(OREB_home)/games_each,
+            DREB_away_against_avg = sum(DREB_home)/games_each,
+            FGM_away_against_avg = sum(FGM_home)/games_each,
+            FGA_away_against_avg = sum(FGA_home)/games_each,
+            FG3M_away_against_avg = sum(FG3M_home)/games_each,
+            FG3A_away_against_avg = sum(FG3A_home)/games_each,
+            FTM_away_against_avg = sum(FTM_home)/games_each,
+            FTA_away_against_avg = sum(FTA_home)/games_each,
+            AST_away_against_avg = sum(AST_home)/games_each,
+            STL_away_against_avg = sum(STL_home)/games_each,
+            BLK_away_against_avg = sum(BLK_home)/games_each,
+            TO_away_against_avg = sum(TO_home)/games_each,
+            PF_away_against_avg = sum(PF_home)/games_each,
+            PM_away_against_avg = sum(PM_home)/games_each)
+
+
+head(season_level_avg_away_2021)
+```
+
+
+# Joining averages back with game matchup dataset
+```{r}
+avg_joined_2021 <- season_level_avg_2021_home %>%
+  left_join(season_level_avg_away_2021, by=c("GAME_ID"))
+
+head(avg_joined_2021)
+```
+
+
+# Create dataset of only season-level averages
+
+```{r}
+season_level_only_1 <- avg_joined_2021 %>%
+  select(-games_each.x, -games_each.y, -GAME_DATE_EST.y) %>%
+  rename("GAME_DATE_EST" = GAME_DATE_EST.x)
+
+head(season_level_only_1)
+```
+
+```{r}
+head(season_avg_ordered)
+```
+
+```{r}
+joining_table_1 <- season_avg_ordered_1[, c("GAME_DATE_EST", "GAME_ID", "Home.Team", "Away.Team", "Spread", "Total", "OREB")]
+head(joining_table_1)
+```
+
+
+
+```{r}
+season_level_only_2 <-  merge(season_level_only_1, joining_table_1, by = c("GAME_ID"))
+
+head(season_level_only_2)
+```
+
+
+# Reordering variables
+```{r}
+season_level_only_2021 <- season_level_only_2[, c("GAME_DATE_EST.x", "Home.Team", "Away.Team", "Spread", "Total", "OREB", "PTS_home", "PTS_away", "PTS_home_avg", "PTS_home_against_avg", "PTS_away_avg", "PTS_away_against_avg", "OREB_home_avg", "OREB_home_against_avg", "OREB_away_avg", "OREB_away_against_avg", "DREB_home_avg", "DREB_home_against_avg", "DREB_away_avg", "DREB_away_against_avg", "FGM_home_avg", "FGM_home_against_avg", "FGM_away_avg", "FGM_away_against_avg", "FGA_home_avg", "FGA_home_against_avg", "FGA_away_avg", "FGA_away_against_avg", "FG3M_home_avg", "FG3M_home_against_avg", "FG3M_away_avg", "FG3M_away_against_avg", "FG3A_home_avg", "FG3A_home_against_avg", "FG3A_away_avg", "FG3A_away_against_avg", "FTM_home_avg", "FTM_home_against_avg", "FTM_away_avg", "FTM_away_against_avg", "FTA_home_avg", "FTA_home_against_avg", "FTA_away_avg", "FTA_away_against_avg", "AST_home_avg", "AST_home_against_avg", "AST_away_avg", "AST_away_against_avg", "STL_home_avg", "STL_home_against_avg", "STL_away_avg", "STL_away_against_avg", "BLK_home_avg", "BLK_home_against_avg", "BLK_away_avg", "BLK_away_against_avg", "TO_home_avg", "TO_home_against_avg", "TO_away_avg", "TO_away_against_avg", "PF_home_avg", "PF_home_against_avg", "PF_away_avg", "PF_away_against_avg", "PM_home_avg", "PM_home_against_avg", "PM_away_avg", "PM_away_against_avg") ]
+
+season_level_stats_2021 <- season_level_only_2021 %>%
+  rename("GAME_DATE_EST"= GAME_DATE_EST.x)
+
+head(season_level_stats_2021,100)
+
+write.csv(season_level_stats_2021, 'season_level_avgs_2021.csv')
+```
+
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
