@@ -1,0 +1,200 @@
+---
+title: "Playoffs 2 OREB Models SEASON LEVEL"
+author: "Shruti Gopalswamy"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(utils)
+library(MASS)
+```
+
+
+# Importing the Data
+
+```{r}
+## Removed plus minus
+season <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_stats.csv")
+season_averages <- subset(season, select = -c(PM_home_avg,PM_away_avg))
+head(season_averages)
+```
+
+```{r}
+## Remove plus-minus 
+games_final_with_PM <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_for_against.csv")
+games_final <- subset(games_final_with_PM, select = -c(PM_home_avg,PM_away_avg,PM_home_against_avg,PM_away_against_avg))
+head(games_final)
+```
+
+# Data Partitioning: Test and Train Data
+As we did for the aforementioned models, we started off by  splitting up the data into training and test data samples using a 85:15 ratio. 
+
+```{r}
+set.seed(100) 
+
+index = sample(1:nrow(season_level_stats), 0.85*nrow(season_level_stats)) 
+
+train_data = games_final[index, -c(1:4)] # Create the training data,
+test_data = games_final[-index,-c(1:4)] # Create the test data, excluding non-numeric features
+
+dim(train_data)
+dim(test_data)
+```
+
+
+# baseline model: poisson regression
+Since OREB is a numeric count variable describing the offensive rebounds, that can often times be very skewed, the data could have non-linear behaviors that may not be adequetly described by a linear model. Thus, for our baseline, we used a poisson regression model, with OREB as the response, all numeric season-level features, besides the ones that would pose a collineairty issue by being too correlated among themselves (i.e. Spread and Total, since we left home and away team points in, and the season-level OREB averages for home and away teams). This model had an AIC of 37875, as well as a large amount of predictors, with almost half of them being not significant at or above the alpha=0.01 significance level. Thus, we applied AIC-based stepwise selection using Cp as the criteria to this baseline model for variable selection.
+
+
+```{r}
+poisson_OREB = glm(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data = train_data, family = 'poisson')
+
+summary(poisson_OREB)
+```
+
+# stepwise for OREB poisson
+
+Call:  glm(formula = OREB ~ FTA_home_against_avg + TO_away_avg, family = "poisson", 
+    data = train_data)
+
+Coefficients:
+         (Intercept)  FTA_home_against_avg  
+             2.44297               0.01312  
+         TO_away_avg  
+             0.02092  
+ 
+After performing the stepwise selection algorithm, the AIC decreased from 39171.37 (for the empty model) to 38976.4, with the resulting model having only two predictors both of which were significant at the alpha=0.001 signficane level. However, with such drastic decrease in predictors, we suspected a signficant loss of information that may be needed to increase predictive strength.
+
+```{r}
+# Fit the full model as the baseline linear reg. model
+Full=lm(poisson_OREB, data=train_data)
+
+# Find the MSE for the baseline full model
+MSE=(summary(Full)$sigma)^2
+
+# Start the stepwise selection process with a model with no predictors
+none = glm(OREB ~ 1, data = train_data, family = 'poisson')
+step(none,scope=list(upper=Full),scale=MSE)
+```
+
+
+```{r}
+stepwise_oreb <- glm(formula = OREB ~ FTA_home_against_avg + TO_away_avg, family = "poisson", data = train_data)
+summary(stepwise_oreb)
+```
+
+
+# Neural Net for OREB
+
+Thus, to find a model that retains predictive strength and minimizes drastic losses of information, we decided to explore neural networks and regression trees as a possible model for predicting OREB. As mentioned previously, OREB may present skewing and non linear behavior, and neural nets tend to work well with non-linear datasets with large amounts of predictors to start off with.
+
+After trying different neuron sizes, we ended up creating a single layer neural network with 3 neurons and a logistic activation function for smoothing.
+
+```{r}
+library(dplyr)
+library(neuralnet)
+
+neuralnet_oreb <- neuralnet(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data=train_data, hidden=10, act.fct = "logistic", linear.output = FALSE)
+summary(neuralnet_oreb)
+plot(neuralnet_oreb)
+```
+
+
+#Cross validation
+Then we performed cross validation to assess and compare the predictive strength of both the poisson model produced via stepwise selection and the neural network, but realized that the neural net 
+
+
+```{r}
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  
+  # Model performance metrics in a clean output
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+}
+```
+
+
+# Cross Validation for OREB stepwise
+
+After performing cross validation using the test data sample containing 15% of the season-level data, the RMSE between the training data sample and test data sample experienced a slight increase, as can be seen in Table (??).
+
+Because both models produced an increase in RMSE from the training data sample to the test data sample, we decided to explore another approach to see if we could further improve model predictive accuracy
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(stepwise_oreb, train_data)
+eval_results(train_data$OREB, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(stepwise_oreb, test_data)
+eval_results(test_data$OREB, predictions_test, test_data)
+
+MSE.lm <- sum((pr.lm - test$medv)^2)/nrow(test)
+
+
+shrinkage_stepwise_oreb= -10.95776 - -11.47495
+shrinkage_stepwise_oreb
+```
+
+
+```{r}
+pr.nn <- compute(neuralnet_oreb,test_data)
+pr.nn_ <- pr.nn$net.result*(max(games_final$OREB)-min(games_final$OREB))+min(games_final$OREB)
+test.r <- (test_data$OREB)*(max(games_final$OREB)-min(games_final$OREB))+min(games_final$OREB)
+MSE.nn <- sum((test.r - pr.nn_)^2)/nrow(test_data)
+
+sqrt(MSE.nn)
+```
+
+```{r}
+pr.nn <- compute(neuralnet_oreb,train_data)
+pr.nn_ <- pr.nn$net.result*(max(games_final$OREB)-min(games_final$OREB))+min(games_final$OREB)
+train.r <- (train_data$OREB)*(max(games_final$OREB)-min(games_final$OREB))+min(games_final$OREB)
+MSE.nn <- sum((train.r - pr.nn_)^2)/nrow(train_data)
+
+sqrt(MSE.nn)
+```
+
+
+#regression tree
+
+Thus, we decided to explore regression trees using ANOVA to predict OREB values, as combining trees is known to result in large improvements in terms of predictive accuracy. Although these improvements are at the expense of a loss of information, our season-level data set contains a large number of features and each individual feature is an average of seasons' worth of data, therefore we decided to take this expense to attempt improve predictive strength.
+
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+regtree_oreb <- rpart(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data=train_data, method  = "anova")
+
+```
+
+# cross validation
+
+After cross validating the regression tree, between the training data sample and the test data sample, we saw actually saw an improvement, with a decrease in RMSE. 
+
+Therefore, as can be seen in Table (?), the model predicting OREB that rendered the best results in terms of predictive strenght on test data it was not optimized for, was the regression tree.
+
+```{r}
+# Make predictions on training set
+predictions_train <- predict(regtree_oreb, train_data)
+eval_results(train_data$OREB, predictions_train, train_data) 
+
+# Make predictions on test set
+predictions_test <- predict(regtree_oreb, test_data)
+eval_results(test_data$OREB, predictions_test, test_data)
+
+
+shrinkage_regtree_oreb= 0
+shrinkage_regtree_oreb
+```
+
