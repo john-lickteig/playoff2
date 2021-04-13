@@ -23,7 +23,7 @@ head(season_averages)
 ```{r}
 ## Remove plus-minus 
 games_final_with_PM <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/season_level_for_against.csv")
-games_final <- subset(games_final_with_PM, select = -c(PM_home_avg,PM_away_avg,PM_home_against_avg,PM_away_against_avg))
+games_final <- subset(games_final_with_PM, select = -c(PM_home_avg,PM_away_avg,PM_home_against_avg,PM_away_against_avg,PTS_home, PTS_away, Spread, Total))
 head(games_final)
 ```
 
@@ -142,7 +142,7 @@ eval_results(test_data$OREB, predictions_test, test_data)
 shrinkage_stepwise_oreb= -10.95776 - -11.47495
 shrinkage_stepwise_oreb
 ```
-
+#cross validating neural net
 
 ```{r}
 pr.nn <- compute(neuralnet_oreb,test_data)
@@ -172,8 +172,7 @@ Thus, we decided to explore regression trees using ANOVA to predict OREB values,
 library(rpart)
 library(rpart.plot)
 
-regtree_oreb <- rpart(OREB ~.-Spread -Total -OREB_home_avg -OREB_away_avg - OREB_home_against_avg - OREB_away_against_avg, data=train_data, method  = "anova")
-
+regtree_oreb <- rpart(OREB ~., data=train_data, method  = "anova")
 ```
 
 # cross validation
@@ -191,8 +190,30 @@ eval_results(train_data$OREB, predictions_train, train_data)
 predictions_test <- predict(regtree_oreb, test_data)
 eval_results(test_data$OREB, predictions_test, test_data)
 
-
 shrinkage_regtree_oreb= 0
 shrinkage_regtree_oreb
 ```
 
+
+
+# Predictions
+
+```{r}
+prediction_with_variables <- read.csv("https://raw.githubusercontent.com/john-lickteig/playoff2/master/prediction_with_variables.csv")
+head(prediction_with_variables)
+
+points_predictions <- read.csv("points_predictions.csv")
+```
+
+```{r}
+summary(regtree_oreb)
+```
+
+
+```{r}
+prediction_with_variables <- subset(prediction_with_variables, select = -c(OREB))
+prediction_with_variables$OREB <- predict(regtree_oreb, prediction_with_variables)
+head(prediction_with_variables, 100)
+
+write.csv(prediction_with_variables, "points_predictions.csv")
+```
